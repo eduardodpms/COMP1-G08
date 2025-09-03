@@ -5,6 +5,10 @@ UNAME_S := $(shell uname -s)
 # Nome do executável final
 EXEC = bin/parser
 
+# Diretórios a serem gerados
+SRC_DIR = src
+BIN_DIR = bin
+
 # Arquivos-fonte do Bison e do Flex
 BISON_FILE = parser/parser.y
 FLEX_FILE  = lexer/lexer.l
@@ -40,15 +44,23 @@ endif
 all: $(EXEC)
 
 # Regra para gerar o executável: depende dos arquivos gerados por Bison e Flex
-$(EXEC): $(BISON_C) $(FLEX_C)
+$(EXEC): $(BISON_C) $(FLEX_C) | $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $(BISON_C) $(FLEX_C) $(LDFLAGS)
 
+# Cria a pasta src/
+$(SRC_DIR):
+	mkdir -p $(SRC_DIR)
+
+# Cria a pasta bin/
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
+
 # Regra para rodar o Bison: gera parser.tab.c e parser.tab.h
-$(BISON_C) $(BISON_H): $(BISON_FILE)
+$(BISON_C) $(BISON_H): $(BISON_FILE) | $(SRC_DIR)
 	bison $(BISON_FLAGS) $(BISON_C) $(BISON_FILE)
 
 # Regra para rodar o Flex: gera lex.yy.c
-$(FLEX_C): $(FLEX_FILE)
+$(FLEX_C): $(FLEX_FILE) | $(SRC_DIR)
 	flex $(FLEX_FLAGS) $(FLEX_C) $(FLEX_FILE)
 
 # Regra de limpeza: remove arquivos gerados
