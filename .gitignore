@@ -1,0 +1,15 @@
+# Ambientes
+venv/
+.env/
+
+# Arquivos de ambiente
+*.pyc
+__pycache__/
+
+# Arquivos locais
+src/parser.tab.c
+src/parser.tab.h
+src/lex.yy.c
+
+# Binários
+bin/parser
