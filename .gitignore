@@ -14,6 +14,7 @@ __pycache__/
 src/parser.tab.c
 src/parser.tab.h
 src/lex.yy.c
+output.c
 
 # Binários
 bin/parser
