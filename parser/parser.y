@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    out = fopen("../tests/1/output.c", "w");
+    out = fopen("output.c", "w");
     fprintf(out, "#include <stdio.h>\n\nint main() {\n");
 
     yyparse();
