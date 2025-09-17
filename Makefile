@@ -66,3 +66,9 @@ $(FLEX_C): $(FLEX_FILE) | $(SRC_DIR)
 # Regra de limpeza: remove arquivos gerados
 clean:
 	rm -f $(EXEC) $(BISON_C) $(BISON_H) $(FLEX_C)
+
+
+.PHONY: force
+
+%: force
+	@./$(EXEC) "$@"
