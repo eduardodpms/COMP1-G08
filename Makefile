@@ -20,13 +20,16 @@ BISON_H   = src/parser.tab.h
 # Arquivo gerado pelo Flex
 FLEX_C    = src/lex.yy.c
 
+# Arquivo de saída do compilador
+OUTPUT_C = output.c
+
 # Parâmetros opcionais ao Bison e Flex
-BISON_FLAGS = -d -o  # -d gera o arquivo .h (token definitions), -o define o diretório de saída
-FLEX_FLAGS  = -o     # -o define o diretório de saída
+BISON_FLAGS = -d -o # -d gera o arquivo .h (token definitions), -o define o diretório de saída
+FLEX_FLAGS  = -o # -o define o diretório de saída
 
 # Parâmetros de compilação
 CC      = gcc
-CFLAGS  =
+CFLAGS  = -o # -o define o diretório de saída
 
 ifeq ($(OS),Linux)
 	LDFLAGS = -lfl     # biblioteca do Flex (Linux)
@@ -44,25 +47,21 @@ endif
 all: $(EXEC)
 
 # Regra para gerar o executável: depende dos arquivos gerados por Bison e Flex
-$(EXEC): $(BISON_C) $(FLEX_C) | $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $(BISON_C) $(FLEX_C) $(LDFLAGS)
-
-# Cria a pasta src/
-$(SRC_DIR):
-	mkdir -p $(SRC_DIR)
-
-# Cria a pasta bin/
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+$(EXEC): clean $(BISON_C) $(FLEX_C) | dir
+	$(CC) $(CFLAGS) $@  $(BISON_C) $(FLEX_C) $(LDFLAGS)
 
 # Regra para rodar o Bison: gera parser.tab.c e parser.tab.h
-$(BISON_C) $(BISON_H): $(BISON_FILE) | $(SRC_DIR)
-	bison $(BISON_FLAGS) $(BISON_C) $(BISON_FILE)
+$(BISON_C) $(BISON_H): $(BISON_FILE) | dir
+	bison $(BISON_FLAGS) $(BISON_C)  $(BISON_FILE)
 
 # Regra para rodar o Flex: gera lex.yy.c
-$(FLEX_C): $(FLEX_FILE) | $(SRC_DIR)
-	flex $(FLEX_FLAGS) $(FLEX_C) $(FLEX_FILE)
+$(FLEX_C): $(FLEX_FILE) | dir
+	flex $(FLEX_FLAGS) $(FLEX_C)  $(FLEX_FILE)
+
+# Cria as pasta src/ e bin/ se não existirem
+dir:
+	mkdir -p $(SRC_DIR) $(BIN_DIR)
 
 # Regra de limpeza: remove arquivos gerados
 clean:
-	rm -f $(EXEC) $(BISON_C) $(BISON_H) $(FLEX_C)
+	rm -f $(EXEC) $(OUTPUT_C) $(BISON_C) $(BISON_H) $(FLEX_C)
