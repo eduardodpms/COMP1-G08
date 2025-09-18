@@ -6,10 +6,15 @@ venv/
 *.pyc
 __pycache__/
 
+# Configurações do editor
+.idea/
+.vscode/
+
 # Arquivos locais
 src/parser.tab.c
 src/parser.tab.h
 src/lex.yy.c
+output.c
 
 # Binários
 bin/parser

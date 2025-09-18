@@ -4,6 +4,17 @@
 
 Projeto do grupo 8 na disciplina de Compiladores 1 do professor Sérgio, na Universidade de Brasília (FCTE).
 
+<br>
+
+## Requisitos
+
+- *Unix* environment (*Linux*, *WSL*, *macOS*, etc)
+- *flex* `2.6.4`
+- *bison* `3.8.2`
+- *GCC* `13.3.0`
+
+<br>
+
 ## Como executar
 
 ### > Gerando o binário
@@ -16,24 +27,26 @@ make # Processa os arquivos e gera o binário bin/parser
 Esse comando irá, automaticamente, executar os seguintes comandos e gerar um binário em `bin/parser`:
 
 ```bash
-mkdir -p src # Cria a pasta src/
+rm -f bin/parser output.c src/parser.tab.c src/parser.tab.h src/lex.yy.c # Apaga os arquivos, caso já existam
+mkdir -p src bin # Cria as pasta src/ e bin/
 bison -d -o src/parser.tab.c    parser/parser.y # Gera os arquivos do parser
 flex -o src/lex.yy.c    lexer/lexer.l # Gera o arquivo do lexer
-mkdir -p bin # Cria a pasta bin/
-gcc  -o bin/parser src/parser.tab.c src/lex.yy.c # Compila em um binário em bin/parser
+gcc -o bin/parser    src/parser.tab.c src/lex.yy.c # Compila em um binário em bin/parser
 ```
 
-2. Depois, execute o binário com o seguinte comando:
+2. Depois, execute o binário com o *path* do arquivo *TypeScript* que se deseja compilar:
 
 ```bash
-./bin/parser # Executa o arquivo binário gerado
+./bin/parser  tests/file.ts # Executa o arquivo binário gerado
 ```
 
-3. Por fim, digite os casos de teste e finalize com `EOF`.
+O código em *C* produzido será salvo em `output.c`, na raiz do repositório.
 
-### > Resetando os arquivos
+---
 
-1. Para apagar os arquivos gerados, execute o seguinte comando:
+### > Apagando os arquivos
+
+1. Para simplesmente apagar os arquivos gerados, execute o seguinte comando:
 
 ```bash
 make clean # Apaga os arquivos gerados
@@ -42,18 +55,12 @@ make clean # Apaga os arquivos gerados
 Essa entrada irá executar o seguinte comando:
 
 ```bash
-rm -f bin/parser  src/parser.tab.c  src/parser.tab.h  src/lex.yy.c # Apaga os arquivos gerados
+rm -f bin/parser output.c src/parser.tab.c src/parser.tab.h src/lex.yy.c # Apaga os arquivos gerados
 ```
 
-2. Se quiser gerar os arquivos novamente, basta executar:
-
-```bash
-make # Processa os arquivos e gera o binário bin/parser
-```
-
+<br>
 
 ## Membros da Equipe
-
 
 <div align="center"><table>
   <tr>
