@@ -11,46 +11,140 @@ Descrição: Exemplo de gramática para expressão aritmética
 %{
 #include <stdio.h>
 #include <stdlib.h>
+
+//* ponteiros para gerar arquivos *//
+extern FILE *yyin;
+FILE *out;
+
 /* Declarações para evitar avisos de função implícita */
 int yylex(void);
 void yyerror(const char *s);
 %}
 
-/* Define valor semântico (intValue) */
 %union {
-    int intValue;
+    int ival;
+    char *sval;
 }
 
-/* Token que carrega valor semântico */
-%token <intValue> NUM
+/* tokens de valor semântico */
+%token LET CONST VAR
 
-/* Tokens sem valor semântico, mas com precedência */
-%token PLUS MINUS TIMES DIVIDE LPAREN RPAREN
+/* tipos de dados */
+%token TYPE_NUMBER TYPE_STRING TYPE_BOOLEAN
 
-/* Declara precedência:
-   - PLUS e MINUS têm menor precedência
-   - TIMES e DIVIDE têm maior precedência */
-%left PLUS MINUS
-%left TIMES DIVIDE
+/* operadores */
+%token PLUS MINUS MULT DIV ASSIGN
 
-/* Associa o não terminal expr ao tipo intValue */
-%type <intValue> expr
+/* símbolos */
+%token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE 
+%token COLON
+
+/* identificadores e literais */
+%token <ival> NUMBER_LITERAL
+%token <sval> IDENT STRING_LITERAL
+
+/* funções */
+%token CONSOLE_LOG
+
+/* não-terminais tipados */
+%type <ival> var_kind
 
 %%
 
-expr:
-      expr PLUS expr    { $$ = $1 + $3; }
-    | expr MINUS expr   { $$ = $1 - $3; }
-    | expr TIMES expr   { $$ = $1 * $3; }
-    | expr DIVIDE expr  { $$ = $1 / $3; }
-    | LPAREN expr RPAREN{ $$ = $2; }
-    | NUM               { $$ = $1; }
+program:
+    /* vazio */
+    | program statement
+    ;
+
+statement:
+    declaration
+    | log_statement
+    ;
+
+/* declaracoes */
+declaration:
+    var_kind IDENT COLON TYPE_NUMBER ASSIGN NUMBER_LITERAL SEMICOLON {
+        int val = $6;        /* agora $6 é NUMBER_LITERAL */
+        char* name = $2;     /* IDENT */
+        int kind = $1;       
+        if (kind == CONST)
+            fprintf(out, "const int %s = %d;\n", name, val);
+        else
+            fprintf(out, "int %s = %d;\n", name, val);
+    }
+    | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL SEMICOLON {
+        char* val = $6;      
+        char* name = $2;     
+        int kind = $1;       
+        if (kind == CONST)
+           fprintf(out, "const char* %s = %s;\n", name, val);
+        else
+             fprintf(out, "char* %s = %s;\n", name, val);
+    }
+    /* casos de erro */
+    | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
+        fprintf(stderr, "Erro: Tentativa de atribuir string a variável numérica '%s'.\n", $2);
+        yyerrok;
+        yyclearin;
+    }
+    | var_kind IDENT COLON TYPE_STRING ASSIGN NUMBER_LITERAL SEMICOLON {
+        fprintf(stderr, "Erro: Tentativa de atribuir número a variável string '%s'.\n", $2);
+        yyerrok;
+        yyclearin;
+    }
+    ;
+
+log_statement:
+    CONSOLE_LOG LPAREN IDENT RPAREN SEMICOLON {
+        fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
+    }
+    | CONSOLE_LOG LPAREN STRING_LITERAL RPAREN SEMICOLON {
+          fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
+      }
+    /* casos de erro */
+    | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN SEMICOLON {
+        fprintf(stderr, "Erro: Tentativa de logar número literal '%d'. Use uma variável ou string.\n", $3);
+        yyerrok;
+        yyclearin;
+    }
+    ;
+
+var_kind: 
+    LET { $$ = LET; }
+    | CONST { $$ = CONST ; }
+    | VAR { $$ = VAR; }
     ;
 
 %%
 
-int main(void) {
-    return yyparse();
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Uso: %s arquivo.ts\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    yyin = fopen(argv[1], "r");
+    if (yyin == NULL) {
+        perror("Erro ao abrir arquivo de entrada");
+        return EXIT_FAILURE;
+    }
+
+    out = fopen("output.c", "w");
+    if (out == NULL) {
+        perror("Erro ao abrir arquivo de saída");
+        return EXIT_FAILURE;
+    }
+
+    fprintf(out, "#include <stdio.h>\n");
+    fprintf(out, "int main() {\n");
+
+    yyparse();
+
+    fprintf(out, "    return 0;\n}\n");
+
+    fclose(yyin);
+    fclose(out);
+    return 0;
 }
 
 void yyerror(const char *s) {
