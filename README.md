@@ -4,6 +4,17 @@
 
 Projeto do grupo 8 na disciplina de Compiladores 1 do professor Sérgio, na Universidade de Brasília (FCTE).
 
+<br>
+
+## Requisitos
+
+- *Unix* environment (*Linux*, *WSL*, *macOS*, etc)
+- *flex* `2.6.4`
+- *bison* `3.8.2`
+- *GCC* `13.3.0`
+
+<br>
+
 ## Como executar
 
 ### > Gerando o binário
@@ -29,7 +40,9 @@ gcc -o bin/parser    src/parser.tab.c src/lex.yy.c # Compila em um binário em b
 ./bin/parser  tests/file.ts # Executa o arquivo binário gerado
 ```
 
-O código em *C* produzido será salvo em `output.c`.
+O código em *C* produzido será salvo em `output.c`, na raiz do repositório.
+
+---
 
 ### > Apagando os arquivos
 
@@ -42,12 +55,12 @@ make clean # Apaga os arquivos gerados
 Essa entrada irá executar o seguinte comando:
 
 ```bash
-rm -f bin/parser  src/parser.tab.c  src/parser.tab.h  src/lex.yy.c # Apaga os arquivos gerados
+rm -f bin/parser output.c src/parser.tab.c src/parser.tab.h src/lex.yy.c # Apaga os arquivos gerados
 ```
 
+<br>
 
 ## Membros da Equipe
-
 
 <div align="center"><table>
   <tr>
