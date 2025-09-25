@@ -1,12 +1,3 @@
-/******************************************************
-FGA0003 - Compiladores 1
-Curso de Engenharia de Software
-Universidade de Brasília (UnB)
-
-Arquivo: lexer.l
-Descrição: Exemplo de analisador léxico (tokens aritméticos)
-******************************************************/
-
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,31 +6,62 @@ Descrição: Exemplo de analisador léxico (tokens aritméticos)
 
 %%
 
-
-"let" { return LET; }
-"const" { return CONST; }
-"var" { return VAR; }
+"if"        { return IF; }
+"else"      { return ELSE; }
 
 
-"number" { return TYPE_NUMBER; }
-"string" { return TYPE_STRING; }
-"boolean" { return TYPE_BOOLEAN; }
+"do"        { return DO; }
+"while"     { return WHILE; }
+"for"       { return FOR; }
+"continue"  { return CONTINUE; }
 
 
-"+"      { return PLUS; }
-"-"      { return MINUS; }
-"*"      { return MULT; }
-"/"      { return DIV; }
-"="      { return ASSIGN; }
+"switch"    { return SWITCH; }
+"case"      { return CASE; }
+"default"   { return DEFAULT; }
+"break"     { return BREAK; }
 
 
-";"      { return SEMICOLON; }
-":"      { return COLON; }
-","      { return COMMA; }
-"("      { return LPAREN; }
-")"      { return RPAREN; }
-"{"      { return LBRACE; }
-"}"      { return RBRACE; }
+"try"       { return TRY; }
+"catch"     { return CATCH; }
+"throw"     { return THROW; }
+
+
+"function"  { return FUNCTION; }
+"return"    { return RETURN; }
+"void"      { return VOID; }
+
+
+"with"      { return WITH; }
+"typeof"    { return TYPEOF; }
+"enum"      { return ENUM; }
+
+
+"let"       { return LET; }
+"const"     { return CONST; }
+"var"       { return VAR; }
+
+
+"number"    { return TYPE_NUMBER; }
+"string"    { return TYPE_STRING; }
+"boolean"   { return TYPE_BOOLEAN; }
+
+
+"+"         { return PLUS; }
+"-"         { return MINUS; }
+"*"         { return MULT; }
+"/"         { return DIV; }
+"="         { return ASSIGN; }
+
+
+";"         { return SEMICOLON; }
+":"         { return COLON; }
+","         { return COMMA; }
+"("         { return LPAREN; }
+")"         { return RPAREN; }
+"{"         { return LBRACE; }
+"}"         { return RBRACE; }
+
 
 "console.log" { return CONSOLE_LOG; }
 
