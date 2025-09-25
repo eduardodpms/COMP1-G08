@@ -65,7 +65,7 @@
 "{"         { return LBRACE; }
 "}"         { return RBRACE; }
 
-
+"read" { return CONSOLE_READ; }
 "console.log" { return CONSOLE_LOG; }
 
 [0-9]+   { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
