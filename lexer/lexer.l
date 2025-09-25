@@ -46,6 +46,9 @@
 "string"    { return TYPE_STRING; }
 "boolean"   { return TYPE_BOOLEAN; }
 
+"true"      { yylval.ival = 1; return BOOLEAN_LITERAL; }
+"false"     { yylval.ival = 0; return BOOLEAN_LITERAL; }
+"null"      { yylval.ival = 0; return NULL_LITERAL; }
 
 "+"         { return PLUS; }
 "-"         { return MINUS; }
