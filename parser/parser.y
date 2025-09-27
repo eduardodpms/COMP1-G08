@@ -26,25 +26,36 @@ void yyerror(const char *s);
     char *sval;
 }
 
-/* tokens de valor semântico */
+/* palavras-chave de controle de fluxo */
+%token IF ELSE
+%token DO WHILE FOR CONTINUE
+%token SWITCH CASE DEFAULT BREAK
+%token FUNCTION RETURN VOID
+%token TRY CATCH THROW
+%token WITH TYPEOF ENUM
+
+/* variáveis */
 %token LET CONST VAR
 
 /* tipos de dados */
 %token TYPE_NUMBER TYPE_STRING TYPE_BOOLEAN
 
+/* literais */
+%token <ival> BOOLEAN_LITERAL
+%token <ival> NULL_LITERAL
+%token <ival> NUMBER_LITERAL
+%token <sval> STRING_LITERAL
+%token <sval> IDENT
+
 /* operadores */
 %token PLUS MINUS MULT DIV ASSIGN
 
 /* símbolos */
-%token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE 
-%token COLON
-
-/* identificadores e literais */
-%token <ival> NUMBER_LITERAL
-%token <sval> IDENT STRING_LITERAL
+%token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
 
 /* funções */
-%token CONSOLE_LOG
+%token CONSOLE_READ CONSOLE_LOG
+
 
 /* não-terminais tipados */
 %type <ival> var_kind
