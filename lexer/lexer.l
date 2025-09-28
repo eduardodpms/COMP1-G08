@@ -4,29 +4,72 @@
 #include "parser.tab.h"   
 %}
 
-%option yylineno
-
 %%
 
-"let"       { return LET; }
-"number"    { return TYPE_NUMBER; }
-"string"    { return TYPE_STRING; }
-";"         { return SEMI; }
-"="         { return ASSIGN; }
-":"         { return COLON; }
-"console.log" { return CONSOLE_LOG; }
-"("         { return LPAREN; }
-")"         { return RPAREN; }
+"if"          { return IF; }
+"else"        { return ELSE; }
 
-[0-9]+      { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
-\"[^\"]*\"  { yylval.sval = strdup(yytext); return STRING_LITERAL; }
+"do"          { return DO; }
+"while"       { return WHILE; }
+"for"         { return FOR; }
+"continue"    { return CONTINUE; }
+
+"switch"      { return SWITCH; }
+"case"        { return CASE; }
+"default"     { return DEFAULT; }
+"break"       { return BREAK; }
+
+"function"    { return FUNCTION; }
+"return"      { return RETURN; }
+"void"        { return VOID; }
+
+"try"         { return TRY; }
+"catch"       { return CATCH; }
+"throw"       { return THROW; }
+
+"with"        { return WITH; }
+"typeof"      { return TYPEOF; }
+"enum"        { return ENUM; }
+
+"let"         { return LET; }
+"const"       { return CONST; }
+"var"         { return VAR; }
+
+"number"      { return TYPE_NUMBER; }
+"string"      { return TYPE_STRING; }
+"boolean"     { return TYPE_BOOLEAN; }
+
+"true"        { yylval.ival = 1; return BOOLEAN_LITERAL; }
+"false"       { yylval.ival = 0; return BOOLEAN_LITERAL; }
+"null"        { yylval.ival = 0; return NULL_LITERAL; }
+
+"+"           { return PLUS; }
+"-"           { return MINUS; }
+"*"           { return MULT; }
+"/"           { return DIV; }
+"="           { return ASSIGN; }
+
+";"           { return SEMICOLON; }
+":"           { return COLON; }
+","           { return COMMA; }
+"("           { return LPAREN; }
+")"           { return RPAREN; }
+"{"           { return LBRACE; }
+"}"           { return RBRACE; }
+
+"read"        { return CONSOLE_READ; }  /* token para input */
+"console.log" { return CONSOLE_LOG; }  /* token para output */
+
+[0-9]+                 { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
+\"[^\"]*\"             { yylval.sval = strdup(yytext); return STRING_LITERAL; }
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.sval = strdup(yytext); return IDENT; }
 
-[ \t\n]     { /* ignora espaços em branco */ }
-.           { printf("Caractere não reconhecido: %s\n", yytext); }
+[ \t\n]+      {  }  /* ignorar \t e \n */
+
+.             { printf("Caractere não reconhecido: %s\n", yytext); }  /* regex para erro */
 
 %%
 
 int yywrap(void) {
-    return 1;
+    return 1;  /* fim do arquivo de entrada */
 }
