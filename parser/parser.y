@@ -19,6 +19,8 @@ FILE *out;
 /* Declarações para evitar avisos de função implícita */
 int yylex(void);
 void yyerror(const char *s);
+
+extern int yylineno;
 %}
 
 %union {
@@ -159,5 +161,8 @@ int main(int argc, char **argv) {
 }
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Erro sintático: %s\n", s);
-}
+    int line = (yylineno > 0) ? yylineno : 1;
+    fprintf(stderr, "Erro sintático: %s na linha %d\n", s ? s : "syntax error", line);
+    exit(EXIT_FAILURE);
+} /* yyerror: imprime a linha do erro usando yylineno (mantido pelo flex)
+   e trava a compilação (primeiro erro sintático). */
