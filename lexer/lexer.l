@@ -1,9 +1,11 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "parser.tab.h"   
 
 extern int yylineno;   /* mantido pelo flex quando usamos %option yylineno */
+extern int compilation_error_count;  /* contador global definido no parser.y */
 %}
 
 %option yylineno
@@ -72,9 +74,9 @@ extern int yylineno;   /* mantido pelo flex quando usamos %option yylineno */
 \n          {  } /* separar \n para atualizar yylineno corretamente e para mensagens de erro precisas */
 [ \t]+      {  }  /* ignorar \t */
 
-.             {
-                  int lineno = (yylineno > 0) ? yylineno : 1;
-                  fprintf(stderr, "Erro léxico: caractere '%s' não reconhecido na linha %d\n", yytext, lineno);
-                  exit(EXIT_FAILURE);
-              } /* imprime o primeiro erro léxico e encerra a execução */
+.   {
+        int lineno = (yylineno > 0) ? yylineno : 1;
+        fprintf(stderr, "Erro léxico: caractere '%s' não reconhecido na linha %d\n", yytext, lineno);
+        compilation_error_count++;
+    } /* incrementa contador global, consome o caractere inválido e continuaa o scanning (não retorna token) */
 %%
