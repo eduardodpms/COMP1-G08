@@ -1,0 +1,1 @@
+let A: number = 10 @ 5;

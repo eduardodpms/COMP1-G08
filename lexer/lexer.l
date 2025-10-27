@@ -1,8 +1,15 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "parser.tab.h"   
+
+extern int yylineno;   /* mantido pelo flex quando usamos %option yylineno */
+extern int compilation_error_count;  /* contador global definido no parser.y */
 %}
+
+%option yylineno
+%option noyywrap
 
 %%
 
@@ -64,12 +71,12 @@
 \"[^\"]*\"             { yylval.sval = strdup(yytext); return STRING_LITERAL; }
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.sval = strdup(yytext); return IDENT; }
 
-[ \t\n]+      {  }  /* ignorar \t e \n */
+\n          {  } /* separar \n para atualizar yylineno corretamente e para mensagens de erro precisas */
+[ \t]+      {  }  /* ignorar \t */
 
-.             { printf("Caractere não reconhecido: %s\n", yytext); }  /* regex para erro */
-
+.   {
+        int lineno = (yylineno > 0) ? yylineno : 1;
+        fprintf(stderr, "Erro léxico: caractere '%s' não reconhecido na linha %d\n", yytext, lineno);
+        compilation_error_count++;
+    } /* incrementa contador global, consome o caractere inválido e continuaa o scanning (não retorna token) */
 %%
-
-int yywrap(void) {
-    return 1;  /* fim do arquivo de entrada */
-}
