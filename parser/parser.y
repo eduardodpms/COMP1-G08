@@ -70,6 +70,7 @@ extern int yylineno;
 
 /* não-terminais tipados */
 %type <ival> var_kind
+%type <ival> expression
 
 %%
 
@@ -91,7 +92,7 @@ statement:
 
 /* declaracoes */
 declaration:
-    var_kind IDENT COLON TYPE_NUMBER ASSIGN NUMBER_LITERAL SEMICOLON {
+    var_kind IDENT COLON TYPE_NUMBER ASSIGN expression SEMICOLON {
         int val = $6;        /* agora $6 é NUMBER_LITERAL */
         char* name = $2;     /* IDENT */
         int kind = $1;       
@@ -124,12 +125,26 @@ declaration:
     }
     ;
 
+
+expression:
+      NUMBER_LITERAL                    { $$ = $1; }  /* Um número literal */
+    | expression PLUS expression        { $$ = $1 + $3; } /* soma */
+    | expression MINUS expression       { $$ = $1 - $3; } /* subtração */
+    | expression MULT expression        { $$ = $1 * $3; } /* multiplicação */
+    | expression DIV expression         { $$ = $1 / $3; } /* divisão */
+    | LPAREN expression RPAREN          { $$ = $2; } /* parênteses */
+    ;
+
+
 log_statement:
     CONSOLE_LOG LPAREN IDENT RPAREN SEMICOLON {
         fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
     }
     | CONSOLE_LOG LPAREN STRING_LITERAL RPAREN SEMICOLON {
           fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
+      }
+    | CONSOLE_LOG LPAREN expression RPAREN SEMICOLON {
+          fprintf(out, "printf(\"%%d\\n\", %d);\n", $3);  /* %d para números */
       }
     /* casos de erro */
     | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN SEMICOLON {
