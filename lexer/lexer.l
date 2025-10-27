@@ -15,6 +15,7 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 
 "if"          { return IF; }
 "else"        { return ELSE; }
+"else if"     { return ELSE_IF; }
 
 "do"          { return DO; }
 "while"       { return WHILE; }
@@ -55,6 +56,16 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "*"           { return MULT; }
 "/"           { return DIV; }
 "="           { return ASSIGN; }
+
+"=="          { return EQUAL; }
+"<"           { return LESS; }
+"<="          { return LESS_EQUAL; }
+">"           { return GREATER; }
+">="          { return GREATER_EQUAL; }
+
+"&&"          { return AND; }
+"||"          { return OR; }
+"!"           { return NOT; }
 
 ";"           { return SEMICOLON; }
 ":"           { return COLON; }

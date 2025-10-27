@@ -38,7 +38,7 @@ extern int yylineno;
 }
 
 /* palavras-chave de controle de fluxo */
-%token IF ELSE
+%token IF ELSE ELSE_IF
 %token DO WHILE FOR CONTINUE
 %token SWITCH CASE DEFAULT BREAK
 %token FUNCTION RETURN VOID
@@ -58,8 +58,10 @@ extern int yylineno;
 %token <sval> STRING_LITERAL
 %token <sval> IDENT
 
-/* operadores */
+/* operadores e comparadores */
 %token PLUS MINUS MULT DIV ASSIGN
+%token EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
+%token AND OR NOT
 
 /* símbolos */
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
@@ -69,20 +71,29 @@ extern int yylineno;
 
 
 /* não-terminais tipados */
-%type <ival> var_kind
+%type <sval> statement
+%type <sval> keyword
+%type <sval> declaration
+%type <sval> output_statement
+%type <sval> input_statement
+
 %type <ival> expression
+%type <ival> var_kind
 
 %%
 
 program:
     /* vazio */
-    | program statement
+    | program statement { fprintf(out, "    %s\n", $2); }
     ;
 
+/* obs: todas as statements retornam ponteiros/strings, e essas
+   strings são colocadas no arquivo somente no "program" acima. */
 statement:
-    declaration
-    | log_statement
-    | input_statement 
+    keyword
+    | declaration
+    | output_statement
+    | input_statement
     /* quando ocorre um erro dentro de uma statement, sincroniza até ';' e segue. */
     | error SEMICOLON {
         yyerrok;
@@ -90,25 +101,47 @@ statement:
       }
     ;
 
+
+keyword:
+    IF LPAREN expression RPAREN statement ELSE statement {
+        $$ = malloc(256);
+        sprintf($$, "if (%d) {\n    %s\n    } else {\n    %s\n    }", $3, $5, $7);
+    }
+    | IF LPAREN expression RPAREN LBRACE statement RBRACE ELSE LBRACE statement RBRACE {
+        $$ = malloc(256);
+        sprintf($$, "if (%d) {\n    %s\n    } else {\n    %s\n    }", $3, $6, $10);
+    }
+    | IF LPAREN expression RPAREN statement {
+        $$ = malloc(256);
+        sprintf($$, "if (%d) {\n    %s\n    }", $3, $5);
+    }
+    | IF LPAREN expression RPAREN LBRACE statement RBRACE {
+        $$ = malloc(256);
+        sprintf($$, "if (%d) {\n    %s\n    }", $3, $6);
+    }
+    ;
+
 /* declaracoes */
 declaration:
     var_kind IDENT COLON TYPE_NUMBER ASSIGN expression SEMICOLON {
+        $$ = malloc(256);
         int val = $6;        /* agora $6 é NUMBER_LITERAL */
         char* name = $2;     /* IDENT */
         int kind = $1;       
         if (kind == CONST)
-            fprintf(out, "const int %s = %d;\n", name, val);
+            sprintf($$, "const int %s = %d;", name, val);
         else
-            fprintf(out, "int %s = %d;\n", name, val);
+            sprintf($$, "int %s = %d;", name, val);
     }
     | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL SEMICOLON {
+        $$ = malloc(256);
         char* val = $6;      
         char* name = $2;     
         int kind = $1;       
         if (kind == CONST)
-           fprintf(out, "const char* %s = %s;\n", name, val);
+            sprintf($$, "const char* %s = %s;", name, val);
         else
-             fprintf(out, "char* %s = %s;\n", name, val);
+            sprintf($$, "char* %s = %s;", name, val);
     }
     /* casos de erro */
     | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
@@ -126,25 +159,18 @@ declaration:
     ;
 
 
-expression:
-      NUMBER_LITERAL                    { $$ = $1; }  /* Um número literal */
-    | expression PLUS expression        { $$ = $1 + $3; } /* soma */
-    | expression MINUS expression       { $$ = $1 - $3; } /* subtração */
-    | expression MULT expression        { $$ = $1 * $3; } /* multiplicação */
-    | expression DIV expression         { $$ = $1 / $3; } /* divisão */
-    | LPAREN expression RPAREN          { $$ = $2; } /* parênteses */
-    ;
-
-
-log_statement:
+output_statement:
     CONSOLE_LOG LPAREN IDENT RPAREN SEMICOLON {
-        fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
+        $$ = malloc(256);
+        sprintf($$, "printf(\"%%s\\n\", %s);", $3);
     }
     | CONSOLE_LOG LPAREN STRING_LITERAL RPAREN SEMICOLON {
-          fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
+          $$ = malloc(256);
+          sprintf($$, "printf(\"%%s\\n\", %s);", $3);
       }
     | CONSOLE_LOG LPAREN expression RPAREN SEMICOLON {
-          fprintf(out, "printf(\"%%d\\n\", %d);\n", $3);  /* %d para números */
+          $$ = malloc(256);
+          sprintf($$, "printf(\"%%d\\n\", %d);", $3);  /* %d para números */
       }
     /* casos de erro */
     | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN SEMICOLON {
@@ -157,9 +183,25 @@ log_statement:
 
 input_statement:
     CONSOLE_READ LPAREN IDENT RPAREN SEMICOLON {
-        fprintf(out, "scanf(\"%%d\", &%s);\n", $3);
+        $$ = malloc(256);
+        sprintf($$, "scanf(\"%%d\", &%s);", $3);
     }
 ;
+
+
+expression:
+      NUMBER_LITERAL                      { $$ = $1; }  /* Um número literal */
+    | expression PLUS expression          { $$ = $1 + $3; } /* soma */
+    | expression MINUS expression         { $$ = $1 - $3; } /* subtração */
+    | expression MULT expression          { $$ = $1 * $3; } /* multiplicação */
+    | expression DIV expression           { $$ = $1 / $3; } /* divisão */
+    | expression EQUAL expression         { $$ = ($1 == $3) ? 1 : 0; } /* igualdade */
+    | expression LESS expression          { $$ = ($1 < $3) ? 1 : 0; }  /* menor que */
+    | expression LESS_EQUAL expression    { $$ = ($1 <= $3) ? 1 : 0; } /* menor ou igual */
+    | expression GREATER expression       { $$ = ($1 > $3) ? 1 : 0; }  /* maior que */
+    | expression GREATER_EQUAL expression { $$ = ($1 >= $3) ? 1 : 0; } /* maior ou igual */
+    | LPAREN expression RPAREN            { $$ = $2; } /* parênteses */
+    ;
 
 
 var_kind: 
