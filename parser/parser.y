@@ -81,6 +81,7 @@ program:
 statement:
     declaration
     | log_statement
+    | input_statement 
     /* quando ocorre um erro dentro de uma statement, sincroniza até ';' e segue. */
     | error SEMICOLON {
         yyerrok;
@@ -138,6 +139,13 @@ log_statement:
         yyclearin;
     }
     ;
+
+input_statement:
+    CONSOLE_READ LPAREN IDENT RPAREN SEMICOLON {
+        fprintf(out, "scanf(\"%%d\", &%s);\n", $3);
+    }
+;
+
 
 var_kind: 
     LET { $$ = LET; }
