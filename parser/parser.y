@@ -1,8 +1,12 @@
 %{
+#include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+
+// ast
+NoAST *ast_root = NULL;
 
 //* ponteiros para gerar arquivos *//
 extern FILE *yyin;
@@ -32,9 +36,14 @@ void report_error(int line, const char *fmt, ...) {
 extern int yylineno;
 %}
 
+%code requires {
+    #include "ast.h"
+}
+
 %union {
     int ival;
     char *sval;
+    NoAST *ast_node;
 }
 
 /* palavras-chave de controle de fluxo */
@@ -70,43 +79,42 @@ extern int yylineno;
 
 /* não-terminais tipados */
 %type <ival> var_kind
+%type <ast_node> declaration statement
 
 %%
 
 program:
     /* vazio */
-    | program statement
-    ;
+    | program statement {
+        if ($2)  // ignora declarações nulas (erros)
+            ast_root = adicionarDeclaracao(ast_root, $2);
+    }
+;
 
 statement:
-    declaration
-    | log_statement
-    /* quando ocorre um erro dentro de uma statement, sincroniza até ';' e segue. */
-    | error SEMICOLON {
-        yyerrok;
-        yyclearin;
-      }
+    declaration {
+        $$ = $1;
+    }
+    | error SEMICOLON { yyerrok; yyclearin; $$ = NULL; }
     ;
 
 /* declaracoes */
 declaration:
+    /* number */
     var_kind IDENT COLON TYPE_NUMBER ASSIGN NUMBER_LITERAL SEMICOLON {
-        int val = $6;        /* agora $6 é NUMBER_LITERAL */
-        char* name = $2;     /* IDENT */
-        int kind = $1;       
-        if (kind == CONST)
-            fprintf(out, "const int %s = %d;\n", name, val);
-        else
-            fprintf(out, "int %s = %d;\n", name, val);
+        NoAST *valor = criarNoNum($6);
+        $$ = criarNoDecl($1, TIPO_NUMBER, $2, valor);
     }
+
+    /* string */
     | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL SEMICOLON {
-        char* val = $6;      
-        char* name = $2;     
-        int kind = $1;       
-        if (kind == CONST)
-           fprintf(out, "const char* %s = %s;\n", name, val);
-        else
-             fprintf(out, "char* %s = %s;\n", name, val);
+        NoAST *valor = criarNoStr($6);
+        $$ = criarNoDecl($1, TIPO_STRING, $2, valor);
+    }
+    /* boolean */
+    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN BOOLEAN_LITERAL SEMICOLON {
+        NoAST *valor = criarNoBool($6);
+        $$ = criarNoDecl($1, TIPO_BOOLEAN, $2, valor);
     }
     /* casos de erro */
     | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
@@ -123,26 +131,27 @@ declaration:
     }
     ;
 
-log_statement:
+/* log_statement:
     CONSOLE_LOG LPAREN IDENT RPAREN SEMICOLON {
         fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
     }
     | CONSOLE_LOG LPAREN STRING_LITERAL RPAREN SEMICOLON {
           fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
-      }
+      } */
     /* casos de erro */
-    | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN SEMICOLON {
+    /* | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN SEMICOLON {
         int line = (yylineno>0)?yylineno:1;
         report_error(line, "Tentativa de logar número literal '%d'. Use uma variável ou string.", $3);
         yyerrok;
         yyclearin;
     }
     ;
+     */
 
-var_kind: 
-    LET { $$ = LET; }
-    | CONST { $$ = CONST ; }
-    | VAR { $$ = VAR; }
+var_kind:
+    LET { $$ = VK_LET; }
+    | CONST { $$ = VK_CONST; }
+    | VAR { $$ = VK_VAR; }
     ;
 
 %%
@@ -152,48 +161,24 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Uso: %s arquivo.ts\n", argv[0]);
         return EXIT_FAILURE;
     }
-
     yyin = fopen(argv[1], "r");
-    if (yyin == NULL) {
-        perror("Erro ao abrir arquivo de entrada");
+    if (!yyin) {
+        perror("Erro ao abrir arquivo");
         return EXIT_FAILURE;
     }
-
-    out = fopen("output.c", "w");
-    if (out == NULL) {
-        perror("Erro ao abrir arquivo de saída");
-        fclose(yyin);
-        return EXIT_FAILURE;
-    }
-
-    fprintf(out, "#include <stdio.h>\n");
-    fprintf(out, "int main() {\n");
 
     int parse_ret = yyparse();
 
-    /* Se o parser retornou erro FATAL e não houve outros erros reportados, considere fatal. */
-    if (parse_ret != 0 && compilation_error_count == 0) {
-        fprintf(stderr, "Parsing failed (fatal). Compilation aborted.\n");
-        fclose(yyin);
-        fclose(out);
-        remove("output.c");
-        return EXIT_FAILURE;
-    }
-
-    /* se encontramos erros (léxicos/sintáticos/semânticos), não geramos output final */
     if (compilation_error_count > 0) {
-        fprintf(stderr, "Encontrados %d erro(s). Compilação abortada.\n", compilation_error_count);
+        fprintf(stderr, "Encontrados %d erro(s). Abortando.\n", compilation_error_count);
         fclose(yyin);
-        fclose(out);
-        remove("output.c");
         return EXIT_FAILURE;
     }
 
-    fprintf(out, "    return 0;\n}\n");
+    printf("AST:\n");
+    imprimirAST(ast_root);
 
     fclose(yyin);
-    fclose(out);
-    printf("Compilação bem-sucedida. output.c gerado.\n");
     return EXIT_SUCCESS;
 }
 
