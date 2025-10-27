@@ -1,5 +1,6 @@
 %{
 #include "ast.h"
+#include "tabela.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -38,6 +39,7 @@ extern int yylineno;
 
 %code requires {
     #include "ast.h"
+    #include "tabela.h"
 }
 
 %union {
@@ -104,17 +106,20 @@ declaration:
     var_kind IDENT COLON TYPE_NUMBER ASSIGN NUMBER_LITERAL SEMICOLON {
         NoAST *valor = criarNoNum($6);
         $$ = criarNoDecl($1, TIPO_NUMBER, $2, valor);
+        inserirSimbolo($2, "number");
     }
 
     /* string */
     | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL SEMICOLON {
         NoAST *valor = criarNoStr($6);
         $$ = criarNoDecl($1, TIPO_STRING, $2, valor);
+        inserirSimbolo($2, "string");
     }
     /* boolean */
     | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN BOOLEAN_LITERAL SEMICOLON {
         NoAST *valor = criarNoBool($6);
         $$ = criarNoDecl($1, TIPO_BOOLEAN, $2, valor);
+        inserirSimbolo($2, "boolean");
     }
     /* casos de erro */
     | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
@@ -177,6 +182,8 @@ int main(int argc, char **argv) {
 
     printf("AST:\n");
     imprimirAST(ast_root);
+
+    imprimirTabela();
 
     fclose(yyin);
     return EXIT_SUCCESS;
