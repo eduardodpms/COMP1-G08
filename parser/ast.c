@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "tabela.h"
+
+extern int yylineno;                              // linha atual do parser
+extern void report_error(int, const char *, ...); // declarada no parser.y
 
 const char *tipoNoToString(NoTipo tipo)
 {
@@ -57,6 +61,11 @@ NoAST *criarNoBool(int valor)
 // Função para criar um nó identificador
 NoAST *criarNoId(const char *nome)
 {
+    if (!buscarSimbolo(nome))
+    {
+        int line = (yylineno > 0) ? yylineno : 1;
+        report_error(line, "Uso de variável '%s' não declarada.", nome);
+    }
     NoAST *novo = malloc(sizeof(NoAST));
     novo->tipo = NO_ID;
     strcpy(novo->nome, nome);
@@ -82,22 +91,10 @@ NoAST *criarNoDecl(VarKind var_kind, TipoDado tipo_dado, const char *nome, NoAST
     novo->tipo = NO_DECL;
     novo->decl.tipo = var_kind;
     novo->decl.tipo_dado = tipo_dado;
-    strncpy(novo->decl.nome, nome, sizeof(novo->decl.nome));
+    strncpy(novo->decl.nome, nome, sizeof(novo->decl.nome) - 1);
     novo->decl.nome[sizeof(novo->decl.nome) - 1] = '\0';
 
-    switch (tipo_dado)
-    {
-    case TIPO_NUMBER:
-        novo->decl.valor_num = valor->valor;
-        break;
-    case TIPO_STRING:
-        strncpy(novo->decl.valor_str, valor->texto, sizeof(novo->decl.valor_str));
-        novo->decl.valor_str[sizeof(novo->decl.valor_str) - 1] = '\0';
-        break;
-    case TIPO_BOOLEAN:
-        novo->decl.valor_bool = valor->valor;
-        break;
-    }
+    novo->decl.expr = valor; // <-- aqui guardamos o nó AST inteiro
 
     novo->esquerda = novo->direita = NULL;
     return novo;
@@ -117,6 +114,59 @@ NoAST *adicionarDeclaracao(NoAST *raiz, NoAST *declaracao)
     return raiz;
 }
 
+TipoDado inferirTipo(NoAST *expr)
+{
+    if (!expr)
+        return -1;
+
+    switch (expr->tipo)
+    {
+    case NO_NUM:
+        return TIPO_NUMBER;
+    case NO_STR:
+        return TIPO_STRING;
+    case NO_BOOL:
+        return TIPO_BOOLEAN;
+    case NO_ID:
+    {
+        TipoDado tipo = obterTipo(expr->nome);
+        if (tipo == -1)
+            report_error(yylineno, "Uso de variável '%s' não declarada", expr->nome);
+        return tipo;
+    }
+    case NO_OP:
+    {
+        TipoDado esq = inferirTipo(expr->esquerda);
+        TipoDado dir = inferirTipo(expr->direita);
+        if (esq != TIPO_NUMBER || dir != TIPO_NUMBER)
+            report_error(yylineno, "Operação inválida entre tipos diferentes");
+        return TIPO_NUMBER;
+    }
+    case NO_DECL:
+        return expr->decl.tipo_dado;
+    default:
+        return -1;
+    }
+}
+
+void verificarTiposAST(NoAST *raiz)
+{
+    if (!raiz)
+        return;
+
+    if (raiz->tipo == NO_DECL)
+    {
+        TipoDado tipo_expr = inferirTipo(raiz->decl.expr);
+        if (tipo_expr != -1 && tipo_expr != raiz->decl.tipo_dado)
+            report_error(yylineno, "Atribuição inválida: variável '%s' recebe tipo diferente do declarado", raiz->decl.nome);
+
+        verificarTiposAST(raiz->decl.expr);
+    }
+
+    verificarTiposAST(raiz->esquerda);
+    verificarTiposAST(raiz->direita);
+}
+
 static void imprimirIndentacao(int nivel)
 {
     for (int i = 0; i < nivel; i++)
@@ -128,57 +178,62 @@ void imprimirAST_rec(NoAST *raiz, int nivel)
     if (!raiz)
         return;
 
-    // Indentação
-    for (int i = 0; i < nivel; i++)
-        printf("  ");
+    imprimirIndentacao(nivel);
 
-    // Imprime o nó atual
     switch (raiz->tipo)
     {
     case NO_DECL:
-        if (raiz->decl.tipo == VK_CONST)
-            printf("const ");
-        else if (raiz->decl.tipo == VK_LET)
-            printf("let ");
-        else
-            printf("var ");
-
-        switch (raiz->decl.tipo_dado)
+        printf("DECLARACAO (%s):\n", raiz->decl.nome);
+        imprimirIndentacao(nivel + 1);
+        printf("Tipo variavel: %s\n",
+               raiz->decl.tipo == VK_LET ? "let" : raiz->decl.tipo == VK_CONST ? "const"
+                                                                               : "var");
+        imprimirIndentacao(nivel + 1);
+        printf("Tipo dado: %s\n",
+               raiz->decl.tipo_dado == TIPO_NUMBER ? "number" : raiz->decl.tipo_dado == TIPO_STRING ? "string"
+                                                                                                    : "boolean");
+        // Expressão de inicialização
+        if (raiz->decl.expr)
         {
-        case TIPO_NUMBER:
-            printf("%s: number = %d\n", raiz->decl.nome, raiz->decl.valor_num);
-            break;
-        case TIPO_STRING:
-            printf("%s: string = \"%s\"\n", raiz->decl.nome, raiz->decl.valor_str);
-            break;
-        case TIPO_BOOLEAN:
-            printf("%s: boolean = %s\n", raiz->decl.nome, raiz->decl.valor_bool ? "true" : "false");
-            break;
+            imprimirIndentacao(nivel + 1);
+            printf("Expressao inicializacao:\n");
+            imprimirAST_rec(raiz->decl.expr, nivel + 2);
         }
         break;
 
     case NO_NUM:
-        printf("Número: %d\n", raiz->valor);
+        printf("NUM: %d\n", raiz->valor);
         break;
     case NO_STR:
-        printf("String: \"%s\"\n", raiz->texto);
+        printf("STRING: \"%s\"\n", raiz->texto);
         break;
     case NO_BOOL:
-        printf("Boolean: %s\n", raiz->valor ? "true" : "false");
+        printf("BOOLEAN: %s\n", raiz->valor ? "true" : "false");
         break;
     case NO_ID:
-        printf("Identificador: %s\n", raiz->nome);
+        printf("ID: %s\n", raiz->nome);
         break;
     case NO_OP:
-        printf("Operador: %c\n", (char)raiz->valor);
-        imprimirAST_rec(raiz->esquerda, nivel + 1);
-        imprimirAST_rec(raiz->direita, nivel + 1);
+        printf("OP: %c\n", (char)raiz->valor);
+        if (raiz->esquerda)
+        {
+            imprimirIndentacao(nivel + 1);
+            printf("Esquerda:\n");
+            imprimirAST_rec(raiz->esquerda, nivel + 2);
+        }
+        if (raiz->direita)
+        {
+            imprimirIndentacao(nivel + 1);
+            printf("Direita:\n");
+            imprimirAST_rec(raiz->direita, nivel + 2);
+        }
         break;
+
     default:
-        printf("(nó desconhecido)\n");
+        printf("(NO DESCONHECIDO)\n");
     }
 
-    // Percorre a próxima declaração encadeada
+    // Próxima declaração encadeada
     if (raiz->direita)
         imprimirAST_rec(raiz->direita, nivel);
 }

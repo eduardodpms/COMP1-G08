@@ -68,7 +68,15 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "console.log" { return CONSOLE_LOG; }  /* token para output */
 
 [0-9]+                 { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
-\"[^\"]*\"             { yylval.sval = strdup(yytext); return STRING_LITERAL; }
+\"[^\"]*\" {
+    size_t len = strlen(yytext);
+    char *str = malloc(len - 1);  // len-2 caracteres + \0
+    if (!str) { fprintf(stderr, "Erro de memória!\n"); exit(1); }
+    strncpy(str, yytext + 1, len - 2);
+    str[len - 2] = '\0';
+    yylval.sval = str;
+    return STRING_LITERAL;
+}
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.sval = strdup(yytext); return IDENT; }
 
 \n          {  } /* separar \n para atualizar yylineno corretamente e para mensagens de erro precisas */

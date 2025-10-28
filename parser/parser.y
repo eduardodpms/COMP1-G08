@@ -48,6 +48,8 @@ extern int yylineno;
     NoAST *ast_node;
 }
 
+
+
 /* palavras-chave de controle de fluxo */
 %token IF ELSE
 %token DO WHILE FOR CONTINUE
@@ -72,8 +74,13 @@ extern int yylineno;
 /* operadores */
 %token PLUS MINUS MULT DIV ASSIGN
 
+// precedência e associatividade dos operadores
+%left PLUS MINUS
+%left MULT DIV
+
 /* símbolos */
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
+
 
 /* funções */
 %token CONSOLE_READ CONSOLE_LOG
@@ -81,7 +88,7 @@ extern int yylineno;
 
 /* não-terminais tipados */
 %type <ival> var_kind
-%type <ast_node> declaration statement
+%type <ast_node> declaration statement expr
 
 %%
 
@@ -103,22 +110,19 @@ statement:
 /* declaracoes */
 declaration:
     /* number */
-    var_kind IDENT COLON TYPE_NUMBER ASSIGN NUMBER_LITERAL SEMICOLON {
-        NoAST *valor = criarNoNum($6);
-        $$ = criarNoDecl($1, TIPO_NUMBER, $2, valor);
+    var_kind IDENT COLON TYPE_NUMBER ASSIGN expr SEMICOLON {
+        $$ = criarNoDecl($1, TIPO_NUMBER, $2, $6);
         inserirSimbolo($2, "number");
     }
 
     /* string */
-    | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL SEMICOLON {
-        NoAST *valor = criarNoStr($6);
-        $$ = criarNoDecl($1, TIPO_STRING, $2, valor);
+    | var_kind IDENT COLON TYPE_STRING ASSIGN expr SEMICOLON {
+        $$ = criarNoDecl($1, TIPO_STRING, $2, $6);
         inserirSimbolo($2, "string");
     }
     /* boolean */
-    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN BOOLEAN_LITERAL SEMICOLON {
-        NoAST *valor = criarNoBool($6);
-        $$ = criarNoDecl($1, TIPO_BOOLEAN, $2, valor);
+    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN expr SEMICOLON {
+        $$ = criarNoDecl($1, TIPO_BOOLEAN, $2, $6);
         inserirSimbolo($2, "boolean");
     }
     /* casos de erro */
@@ -133,6 +137,36 @@ declaration:
         report_error(line, "Tentativa de atribuir número a variável string '%s'.", $2);
         yyerrok;
         yyclearin;
+    }
+    ;
+
+expr:
+    expr PLUS expr {
+       $$ = criarNoOp('+', $1, $3);
+    }
+    | expr MINUS expr {
+        $$ = criarNoOp('-', $1, $3);
+    }
+    | expr MULT expr {
+        $$ = criarNoOp('*', $1, $3);
+    }
+    | expr DIV expr {
+        $$ = criarNoOp('/', $1, $3);
+    }
+    | NUMBER_LITERAL {
+        $$ = criarNoNum($1);
+    } 
+    | STRING_LITERAL {
+        $$ = criarNoStr($1);
+    }
+    | BOOLEAN_LITERAL {
+        $$ = criarNoBool($1);
+    }
+    | IDENT {
+        $$ = criarNoId($1);
+    }
+    | '(' expr ')' {
+        $$ = $2;
     }
     ;
 
@@ -174,6 +208,8 @@ int main(int argc, char **argv) {
 
     int parse_ret = yyparse();
 
+    verificarTiposAST(ast_root);
+    
     if (compilation_error_count > 0) {
         fprintf(stderr, "Encontrados %d erro(s). Abortando.\n", compilation_error_count);
         fclose(yyin);

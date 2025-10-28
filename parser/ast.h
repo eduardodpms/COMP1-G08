@@ -26,31 +26,27 @@ typedef enum
     TIPO_BOOLEAN
 } TipoDado;
 
-typedef struct NoAST
+typedef struct NoAST NoAST;
+
+struct NoAST
 {
     NoTipo tipo;
     union
     {
-        int valor;       // para NO_NUM
-        char nome[32];   // para NO_ID
-        char texto[128]; // para NO_STR
+        int valor;       // NO_NUM / NO_BOOL
+        char nome[32];   // NO_ID
+        char texto[128]; // NO_STR
         struct
         {
             VarKind tipo;       // tipo de variável
             TipoDado tipo_dado; // tipo de dado
             char nome[32];      // nome da variável
-            union
-            {
-                int valor_num;       // para números
-                char valor_str[128]; // para strings
-                int valor_bool;      // para booleanos
-            };
-
+            NoAST *expr;        // expressão de inicialização
         } decl;
     };
-    struct NoAST *esquerda;
-    struct NoAST *direita;
-} NoAST;
+    NoAST *esquerda;
+    NoAST *direita;
+};
 
 // Cria um nó numérico
 NoAST *criarNoNum(int valor);
@@ -69,5 +65,9 @@ NoAST *adicionarDeclaracao(NoAST *raiz, NoAST *declaracao);
 
 // Imprime a AST
 void imprimirAST(NoAST *raiz);
+
+// aplicacao da tabela
+TipoDado inferirTipo(NoAST *expr);
+void verificarTiposAST(NoAST *raiz);
 
 #endif
