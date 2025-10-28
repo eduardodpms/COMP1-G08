@@ -37,6 +37,13 @@ extern int yylineno;
     char *sval;
 }
 
+/* literais */
+%token <ival> BOOLEAN_LITERAL
+%token <ival> NULL_LITERAL
+%token <ival> NUMBER_LITERAL
+%token <sval> STRING_LITERAL
+%token <sval> IDENT
+
 /* palavras-chave de controle de fluxo */
 %token IF ELSE ELSE_IF
 %token DO WHILE FOR CONTINUE
@@ -51,24 +58,23 @@ extern int yylineno;
 /* tipos de dados */
 %token TYPE_NUMBER TYPE_STRING TYPE_BOOLEAN
 
-/* literais */
-%token <ival> BOOLEAN_LITERAL
-%token <ival> NULL_LITERAL
-%token <ival> NUMBER_LITERAL
-%token <sval> STRING_LITERAL
-%token <sval> IDENT
-
-/* operadores e comparadores */
+/* operadores */
 %token PLUS MINUS MULT DIV ASSIGN
 %token EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
 %token AND OR NOT
-
-/* símbolos */
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
-
-/* funções */
 %token CONSOLE_READ CONSOLE_LOG
 
+// Diretivas de precedência e associatividade
+%left PLUS MINUS
+%left MULT DIV
+%left EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
+%left AND OR
+%right NOT
+%right ASSIGN
+%left SEMICOLON COMMA
+%left IF ELSE ELSE_IF
+%left LPAREN RPAREN LBRACE RBRACE COLON
 
 /* não-terminais tipados */
 %type <sval> statement
