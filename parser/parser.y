@@ -1,6 +1,7 @@
 %{
 #include "ast.h"
 #include "tabela.h"
+#include "codegen.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -40,6 +41,7 @@ extern int yylineno;
 %code requires {
     #include "ast.h"
     #include "tabela.h"
+    #include "codegen.h"
 }
 
 %union {
@@ -220,6 +222,10 @@ int main(int argc, char **argv) {
     imprimirAST(ast_root);
 
     imprimirTabela();
+
+    // === GERAR C ===
+    gerarCodigoC(ast_root, "saida.c");
+    printf("\nCódigo C gerado em 'saida.c'\n");
 
     fclose(yyin);
     return EXIT_SUCCESS;
