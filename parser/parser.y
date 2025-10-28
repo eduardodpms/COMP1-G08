@@ -72,6 +72,7 @@ extern int yylineno;
 
 /* não-terminais tipados */
 %type <sval> statement
+%type <sval> scope_statement
 %type <sval> keyword
 %type <sval> declaration
 %type <sval> output_statement
@@ -94,6 +95,10 @@ statement:
     | declaration
     | output_statement
     | input_statement
+    | LBRACE scope_statement {
+        $$ = malloc(256);
+        sprintf($$, "{\n%s\n", $2);
+    }
     /* quando ocorre um erro dentro de uma statement, sincroniza até ';' e segue. */
     | error SEMICOLON {
         yyerrok;
@@ -101,23 +106,24 @@ statement:
       }
     ;
 
+/* obs: scope_statement trata escopos por meio de
+   recursão, analisando chaves "}" e statements. */
+scope_statement:
+    statement scope_statement {
+        $$ = malloc(256);
+        sprintf($$, "%s\n%s", $1, $2);
+    }
+    | statement RBRACE {
+        $$ = malloc(256);
+        sprintf($$, "%s\n}", $1);
+    }
+    ;
+
 
 keyword:
-    IF LPAREN expression RPAREN statement ELSE statement {
+    IF LPAREN expression RPAREN statement {
         $$ = malloc(256);
-        sprintf($$, "if (%d) {\n    %s\n    } else {\n    %s\n    }", $3, $5, $7);
-    }
-    | IF LPAREN expression RPAREN LBRACE statement RBRACE ELSE LBRACE statement RBRACE {
-        $$ = malloc(256);
-        sprintf($$, "if (%d) {\n    %s\n    } else {\n    %s\n    }", $3, $6, $10);
-    }
-    | IF LPAREN expression RPAREN statement {
-        $$ = malloc(256);
-        sprintf($$, "if (%d) {\n    %s\n    }", $3, $5);
-    }
-    | IF LPAREN expression RPAREN LBRACE statement RBRACE {
-        $$ = malloc(256);
-        sprintf($$, "if (%d) {\n    %s\n    }", $3, $6);
+        sprintf($$, "if (%d) %s\n", $3, $5);
     }
     ;
 
