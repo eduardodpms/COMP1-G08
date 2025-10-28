@@ -131,23 +131,17 @@ keyword:
 declaration:
     var_kind IDENT COLON TYPE_NUMBER ASSIGN expression SEMICOLON {
         $$ = malloc(256);
-        int val = $6;        /* agora $6 é NUMBER_LITERAL */
-        char* name = $2;     /* IDENT */
-        int kind = $1;       
-        if (kind == CONST)
-            sprintf($$, "const int %s = %d;", name, val);
+        if ($1 == CONST)
+            sprintf($$, "const int %s = %d;", $2, $6);
         else
-            sprintf($$, "int %s = %d;", name, val);
+            sprintf($$, "int %s = %d;", $2, $6);
     }
     | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL SEMICOLON {
-        $$ = malloc(256);
-        char* val = $6;      
-        char* name = $2;     
-        int kind = $1;       
-        if (kind == CONST)
-            sprintf($$, "const char* %s = %s;", name, val);
+        $$ = malloc(256);  
+        if ($1 == CONST)
+            sprintf($$, "const char* %s = %s;", $2, $6);
         else
-            sprintf($$, "char* %s = %s;", name, val);
+            sprintf($$, "char* %s = %s;", $2, $6);
     }
     /* casos de erro */
     | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
@@ -187,6 +181,7 @@ output_statement:
     }
     ;
 
+
 input_statement:
     CONSOLE_READ LPAREN IDENT RPAREN SEMICOLON {
         $$ = malloc(256);
@@ -217,6 +212,9 @@ var_kind:
     ;
 
 %%
+
+
+
 
 int main(int argc, char **argv) {
     if (argc < 2) {
