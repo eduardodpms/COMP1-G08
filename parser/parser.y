@@ -73,6 +73,7 @@ extern int yylineno;
 /* não-terminais tipados */
 %type <sval> statement
 %type <sval> scope_statement
+%type <sval> else_statement
 %type <sval> keyword
 %type <sval> declaration
 %type <sval> output_statement
@@ -120,10 +121,30 @@ scope_statement:
     ;
 
 
+else_statement:
+    ELSE_IF LPAREN expression RPAREN statement else_statement {
+        $$ = malloc(256);
+        sprintf($$, "else if (%d) %s\n%s", $3, $5, $6);
+    }
+    | ELSE_IF LPAREN expression RPAREN statement {
+        $$ = malloc(256);
+        sprintf($$, "else if (%d) %s", $3, $5);
+    }
+    | ELSE statement {
+        $$ = malloc(256);
+        sprintf($$, "else %s", $2);
+    }
+    ;
+
+
 keyword:
     IF LPAREN expression RPAREN statement {
         $$ = malloc(256);
         sprintf($$, "if (%d) %s\n", $3, $5);
+    }
+    | IF LPAREN expression RPAREN statement else_statement {
+        $$ = malloc(256);
+        sprintf($$, "if (%d) %s\n%s\n", $3, $5, $6);
     }
     ;
 
