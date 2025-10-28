@@ -35,6 +35,7 @@ NoAST *criarNoNum(int valor)
     novo->tipo = NO_NUM;
     novo->valor = valor;
     novo->esquerda = novo->direita = NULL;
+    novo->linha = yylineno;
     return novo;
 }
 // Função para criar um nó string
@@ -45,6 +46,7 @@ NoAST *criarNoStr(const char *texto)
     strncpy(novo->texto, texto, sizeof(novo->texto));
     novo->texto[sizeof(novo->texto) - 1] = '\0'; // Garantir terminação nula
     novo->esquerda = novo->direita = NULL;
+    novo->linha = yylineno;
     return novo;
 }
 
@@ -55,6 +57,7 @@ NoAST *criarNoBool(int valor)
     novo->tipo = NO_BOOL;
     novo->valor = valor;
     novo->esquerda = novo->direita = NULL;
+    novo->linha = yylineno;
     return novo;
 }
 
@@ -70,6 +73,7 @@ NoAST *criarNoId(const char *nome)
     novo->tipo = NO_ID;
     strcpy(novo->nome, nome);
     novo->esquerda = novo->direita = NULL;
+    novo->linha = yylineno;
     return novo;
 }
 
@@ -81,6 +85,7 @@ NoAST *criarNoOp(char operador, NoAST *esquerda, NoAST *direita)
     novo->valor = operador;
     novo->esquerda = esquerda;
     novo->direita = direita;
+    novo->linha = yylineno;
     return novo;
 }
 
@@ -97,6 +102,7 @@ NoAST *criarNoDecl(VarKind var_kind, TipoDado tipo_dado, const char *nome, NoAST
     novo->decl.expr = valor; // <-- aqui guardamos o nó AST inteiro
 
     novo->esquerda = novo->direita = NULL;
+    novo->linha = yylineno;
     return novo;
 }
 
@@ -165,6 +171,106 @@ void verificarTiposAST(NoAST *raiz)
 
     verificarTiposAST(raiz->esquerda);
     verificarTiposAST(raiz->direita);
+}
+
+TipoDado verificarTipo(NoAST *raiz)
+{
+    if (!raiz)
+        return -1;
+
+    switch (raiz->tipo)
+    {
+    case NO_NUM:
+        return TIPO_NUMBER;
+    case NO_BOOL:
+        return TIPO_BOOLEAN;
+    case NO_STR:
+        return TIPO_STRING;
+    case NO_ID:
+    {
+        Simbolo *s = buscarSimbolo(raiz->nome);
+        if (!s)
+        {
+            report_error(raiz->linha, "Uso de variável '%s' não declarada.", raiz->nome);
+            return -1;
+        }
+        return s->tipo;
+    }
+    case NO_OP:
+    {
+        TipoDado t1 = verificarTipo(raiz->esquerda);
+        TipoDado t2 = verificarTipo(raiz->direita);
+        if (t1 != t2)
+        {
+            report_error(raiz->linha, "Operação inválida entre tipos diferentes");
+            return -1;
+        }
+        return t1; // tipo do resultado
+    }
+    case NO_DECL:
+        return raiz->decl.tipo_dado;
+    default:
+        return -1;
+    }
+}
+
+int avaliarExpr(NoAST *expr, int *ok)
+{
+    if (!expr)
+    {
+        *ok = 0;
+        return 0;
+    }
+
+    switch (expr->tipo)
+    {
+    case NO_NUM:
+        *ok = 1;
+        return expr->valor;
+
+    case NO_BOOL:
+        *ok = 1;
+        return expr->valor;
+
+    case NO_ID:
+    {
+        int sucesso = 0;
+        int valor = obterValor(expr->nome, &sucesso);
+        *ok = sucesso;
+        return valor;
+    }
+
+    case NO_OP:
+    {
+        int ok1 = 0, ok2 = 0;
+        int v1 = avaliarExpr(expr->esquerda, &ok1);
+        int v2 = avaliarExpr(expr->direita, &ok2);
+        if (!ok1 || !ok2)
+        {
+            *ok = 0;
+            return 0;
+        }
+        *ok = 1;
+        switch (expr->valor)
+        {
+        case '+':
+            return v1 + v2;
+        case '-':
+            return v1 - v2;
+        case '*':
+            return v1 * v2;
+        case '/':
+            return v2 != 0 ? v1 / v2 : 0;
+        default:
+            *ok = 0;
+            return 0;
+        }
+    }
+
+    default:
+        *ok = 0;
+        return 0;
+    }
 }
 
 static void imprimirIndentacao(int nivel)

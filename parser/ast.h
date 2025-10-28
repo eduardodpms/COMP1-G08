@@ -42,10 +42,14 @@ struct NoAST
             TipoDado tipo_dado; // tipo de dado
             char nome[32];      // nome da variável
             NoAST *expr;        // expressão de inicialização
+            int is_constante;   // indica se é constante
+            int valor_num;      // apenas para números constantes
         } decl;
     };
     NoAST *esquerda;
     NoAST *direita;
+
+    int linha;
 };
 
 // Cria um nó numérico
@@ -69,5 +73,7 @@ void imprimirAST(NoAST *raiz);
 // aplicacao da tabela
 TipoDado inferirTipo(NoAST *expr);
 void verificarTiposAST(NoAST *raiz);
+int avaliarExpr(NoAST *expr, int *ok);
+TipoDado verificarTipo(NoAST *raiz);
 
 #endif

@@ -114,18 +114,24 @@ declaration:
     /* number */
     var_kind IDENT COLON TYPE_NUMBER ASSIGN expr SEMICOLON {
         $$ = criarNoDecl($1, TIPO_NUMBER, $2, $6);
-        inserirSimbolo($2, "number");
+        inserirSimbolo($2, TIPO_NUMBER);
+
+        int ok;
+        int valor = avaliarExpr($6, &ok);
+        if(ok) {
+            atualizarValorConstante($2, valor);
+        }
     }
 
     /* string */
     | var_kind IDENT COLON TYPE_STRING ASSIGN expr SEMICOLON {
         $$ = criarNoDecl($1, TIPO_STRING, $2, $6);
-        inserirSimbolo($2, "string");
+        inserirSimbolo($2, TIPO_STRING);
     }
     /* boolean */
     | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN expr SEMICOLON {
         $$ = criarNoDecl($1, TIPO_BOOLEAN, $2, $6);
-        inserirSimbolo($2, "boolean");
+        inserirSimbolo($2, TIPO_BOOLEAN);
     }
     /* casos de erro */
     | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
@@ -139,6 +145,16 @@ declaration:
         report_error(line, "Tentativa de atribuir número a variável string '%s'.", $2);
         yyerrok;
         yyclearin;
+    }
+    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN STRING_LITERAL SEMICOLON {
+    int line = (yylineno>0)?yylineno:1;
+    report_error(line, "Tentativa de atribuir string a variável boolean '%s'.", $2);
+    yyerrok; yyclearin;
+    }
+    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN NUMBER_LITERAL SEMICOLON {
+        int line = (yylineno>0)?yylineno:1;
+        report_error(line, "Tentativa de atribuir número a variável boolean '%s'.", $2);
+        yyerrok; yyclearin;
     }
     ;
 
@@ -166,6 +182,14 @@ expr:
     }
     | IDENT {
         $$ = criarNoId($1);
+
+        int ok;
+        int valor = obterValor($1, &ok);
+        if (ok) {
+            // Se o identificador tem valor constante, substitui pelo valor
+            free($$);
+            $$ = criarNoNum(valor);
+        }
     }
     | '(' expr ')' {
         $$ = $2;
@@ -210,7 +234,7 @@ int main(int argc, char **argv) {
 
     int parse_ret = yyparse();
 
-    verificarTiposAST(ast_root);
+    verificarTipo(ast_root);
     
     if (compilation_error_count > 0) {
         fprintf(stderr, "Encontrados %d erro(s). Abortando.\n", compilation_error_count);
