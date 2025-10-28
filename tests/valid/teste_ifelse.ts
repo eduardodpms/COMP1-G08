@@ -1,5 +1,8 @@
 if(1<=2)
-    console.log("1");
+    if(1) 
+        console.log("1");
+    else
+        console.log("2");
 if(1>=2)
     console.log("1.5");
 else if(2==3)

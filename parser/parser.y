@@ -73,8 +73,8 @@ extern int yylineno;
 %right NOT
 %right ASSIGN
 %left SEMICOLON COMMA
-%left IF ELSE ELSE_IF
 %left LPAREN RPAREN LBRACE RBRACE COLON
+%left ELSE ELSE_IF
 
 /* não-terminais tipados */
 %type <sval> statement
@@ -231,12 +231,12 @@ output_statement:
         sprintf($$, "printf(\"%%d\\n\", %d)", $3);  /* %d para números */
     }
     /* casos de erro */
-    | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN {
+    /*| CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN {
         int line = (yylineno>0)?yylineno:1;
         report_error(line, "Tentativa de logar número literal '%d'. Use uma variável ou string.", $3);
         yyerrok;
         yyclearin;
-    }
+    }*/
     ;
 
 
