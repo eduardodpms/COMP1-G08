@@ -72,10 +72,12 @@ extern int yylineno;
 
 /* não-terminais tipados */
 %type <sval> statement
+%type <sval> comma_statement
 %type <sval> scope_statement
 %type <sval> else_statement
 %type <sval> keyword
 %type <sval> declaration
+%type <sval> attribution
 %type <sval> output_statement
 %type <sval> input_statement
 
@@ -93,12 +95,17 @@ program:
    strings são colocadas no arquivo somente no "program" acima. */
 statement:
     keyword
-    | declaration
-    | output_statement
-    | input_statement
+    | declaration SEMICOLON{
+        $$ = malloc(256);
+        sprintf($$, "%s;", $1);
+    }
+    | comma_statement SEMICOLON {
+        $$ = malloc(256);
+        sprintf($$, "%s;", $1);
+    }
     | LBRACE scope_statement {
         $$ = malloc(256);
-        sprintf($$, "{\n%s\n", $2);
+        sprintf($$, "{\n%s", $2);
     }
     /* quando ocorre um erro dentro de uma statement, sincroniza até ';' e segue. */
     | error SEMICOLON {
@@ -106,6 +113,14 @@ statement:
         yyclearin;
       }
     ;
+
+
+comma_statement:
+    attribution
+    | output_statement
+    | input_statement
+    ;
+
 
 /* obs: scope_statement trata escopos por meio de
    recursão, analisando chaves "}" e statements. */
@@ -140,32 +155,40 @@ else_statement:
 keyword:
     IF LPAREN expression RPAREN statement {
         $$ = malloc(256);
-        sprintf($$, "if (%d) %s\n", $3, $5);
+        sprintf($$, "if (%d) %s", $3, $5);
     }
     | IF LPAREN expression RPAREN statement else_statement {
         $$ = malloc(256);
-        sprintf($$, "if (%d) %s\n%s\n", $3, $5, $6);
+        sprintf($$, "if (%d) %s\n%s", $3, $5, $6);
+    }
+    | WHILE LPAREN expression RPAREN statement {
+        $$ = malloc(256);
+        sprintf($$, "while (%d) %s", $3, $5);
+    }
+    | FOR LPAREN declaration SEMICOLON expression SEMICOLON attribution RPAREN statement {
+        $$ = malloc(256);
+        sprintf($$, "for (%s; %d; %s) %s", $3, $5, $7, $9);
     }
     ;
 
 /* declaracoes */
 declaration:
-    var_kind IDENT COLON TYPE_NUMBER ASSIGN expression SEMICOLON {
+    var_kind IDENT COLON TYPE_NUMBER ASSIGN expression {
         $$ = malloc(256);
         if ($1 == CONST)
-            sprintf($$, "const int %s = %d;", $2, $6);
+            sprintf($$, "const int %s = %d", $2, $6);
         else
-            sprintf($$, "int %s = %d;", $2, $6);
+            sprintf($$, "int %s = %d", $2, $6);
     }
-    | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL SEMICOLON {
+    | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL {
         $$ = malloc(256);  
         if ($1 == CONST)
-            sprintf($$, "const char* %s = %s;", $2, $6);
+            sprintf($$, "const char* %s = %s", $2, $6);
         else
-            sprintf($$, "char* %s = %s;", $2, $6);
+            sprintf($$, "char* %s = %s", $2, $6);
     }
     /* casos de erro */
-    | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
+    | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL {
         int line = (yylineno>0)?yylineno:1;
         report_error(line, "Tentativa de atribuir string a variável numérica '%s'.", $2);
         yyerrok;
@@ -180,21 +203,29 @@ declaration:
     ;
 
 
-output_statement:
-    CONSOLE_LOG LPAREN IDENT RPAREN SEMICOLON {
+attribution:
+    IDENT ASSIGN expression {
         $$ = malloc(256);
-        sprintf($$, "printf(\"%%s\\n\", %s);", $3);
+        sprintf($$, "%s = %d", $1, $3);
     }
-    | CONSOLE_LOG LPAREN STRING_LITERAL RPAREN SEMICOLON {
-          $$ = malloc(256);
-          sprintf($$, "printf(\"%%s\\n\", %s);", $3);
-      }
-    | CONSOLE_LOG LPAREN expression RPAREN SEMICOLON {
-          $$ = malloc(256);
-          sprintf($$, "printf(\"%%d\\n\", %d);", $3);  /* %d para números */
-      }
+    ;
+
+
+output_statement:
+    CONSOLE_LOG LPAREN IDENT RPAREN {
+        $$ = malloc(256);
+        sprintf($$, "printf(\"%%s\\n\", %s)", $3);
+    }
+    | CONSOLE_LOG LPAREN STRING_LITERAL RPAREN {
+        $$ = malloc(256);
+        sprintf($$, "printf(\"%%s\\n\", %s)", $3);
+    }
+    | CONSOLE_LOG LPAREN expression RPAREN {
+        $$ = malloc(256);
+        sprintf($$, "printf(\"%%d\\n\", %d)", $3);  /* %d para números */
+    }
     /* casos de erro */
-    | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN SEMICOLON {
+    | CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN {
         int line = (yylineno>0)?yylineno:1;
         report_error(line, "Tentativa de logar número literal '%d'. Use uma variável ou string.", $3);
         yyerrok;
@@ -204,9 +235,9 @@ output_statement:
 
 
 input_statement:
-    CONSOLE_READ LPAREN IDENT RPAREN SEMICOLON {
+    CONSOLE_READ LPAREN IDENT RPAREN {
         $$ = malloc(256);
-        sprintf($$, "scanf(\"%%d\", &%s);", $3);
+        sprintf($$, "scanf(\"%%d\", &%s)", $3);
     }
 ;
 
