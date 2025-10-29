@@ -122,6 +122,7 @@ statement:
     | error SEMICOLON {
         yyerrok;
         yyclearin;
+        $$ = strdup("");
       }
     ;
 
