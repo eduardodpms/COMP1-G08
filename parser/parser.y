@@ -90,8 +90,6 @@ extern int yylineno;
 %type <sval> output_statement
 %type <sval> input_statement
 %type <sval> expression_statement
-
-%type <ival> expression
 %type <ival> var_kind
 
 %%
@@ -231,10 +229,10 @@ output_statement:
         $$ = malloc(str_size);
         sprintf($$, "printf(\"%%s\\n\", %s)", $3);
     }
-    | CONSOLE_LOG LPAREN expression RPAREN {
+    /*| CONSOLE_LOG LPAREN expression_statement RPAREN {
         $$ = malloc(str_size);
         sprintf($$, "printf(\"%%d\\n\", %d)", $3);  /* %d para números */
-    }
+    
     /* casos de erro */
     /*| CONSOLE_LOG LPAREN NUMBER_LITERAL RPAREN {
         int line = (yylineno>0)?yylineno:1;
@@ -254,27 +252,20 @@ input_statement:
 
 
 expression_statement:
-    expression {
-        $$ = malloc(str_size);
-        sprintf($$, "%d", $1);
-    }
-
-
-expression:
-    NUMBER_LITERAL                        { $$ = $1; }
-    | LPAREN expression RPAREN            { $$ = $2; }
-    | expression PLUS expression          { $$ = $1 + $3; }
-    | expression MINUS expression         { $$ = $1 - $3; }
-    | expression MULT expression          { $$ = $1 * $3; }
-    | expression DIV expression           { $$ = $1 / $3; }
-    | expression EQUAL expression         { $$ = ($1 == $3) ? 1 : 0; }
-    | expression LESS expression          { $$ = ($1 < $3) ? 1 : 0; }
-    | expression LESS_EQUAL expression    { $$ = ($1 <= $3) ? 1 : 0; }
-    | expression GREATER expression       { $$ = ($1 > $3) ? 1 : 0; }
-    | expression GREATER_EQUAL expression { $$ = ($1 >= $3) ? 1 : 0; }
-    | expression AND expression           { $$ = ($1 && $3) ? 1 : 0; }
-    | expression OR expression            { $$ = ($1 || $3) ? 1 : 0; }
-    | NOT expression                      { $$ = (!$2) ? 1 : 0; }
+    NUMBER_LITERAL                                            { $$ = malloc(str_size); sprintf($$, "%d", $1); }
+    | LPAREN expression_statement RPAREN                      { $$ = malloc(str_size); sprintf($$, "(%s)", $2); }
+    | expression_statement PLUS expression_statement          { $$ = malloc(str_size); sprintf($$, "%s + %s", $1, $3); }
+    | expression_statement MINUS expression_statement         { $$ = malloc(str_size); sprintf($$, "%s - %s", $1, $3); }
+    | expression_statement MULT expression_statement          { $$ = malloc(str_size); sprintf($$, "%s * %s", $1, $3); }
+    | expression_statement DIV expression_statement           { $$ = malloc(str_size); sprintf($$, "%s / %s", $1, $3); }
+    | expression_statement EQUAL expression_statement         { $$ = malloc(str_size); sprintf($$, "%s == %s", $1, $3); }
+    | expression_statement LESS expression_statement          { $$ = malloc(str_size); sprintf($$, "%s < %s", $1, $3); }
+    | expression_statement LESS_EQUAL expression_statement    { $$ = malloc(str_size); sprintf($$, "%s <= %s", $1, $3); }
+    | expression_statement GREATER expression_statement       { $$ = malloc(str_size); sprintf($$, "%s > %s", $1, $3); }
+    | expression_statement GREATER_EQUAL expression_statement { $$ = malloc(str_size); sprintf($$, "%s >= %s", $1, $3); }
+    | expression_statement AND expression_statement           { $$ = malloc(str_size); sprintf($$, "%s && %s", $1, $3); }
+    | expression_statement OR expression_statement            { $$ = malloc(str_size); sprintf($$, "%s || %s", $1, $3); }
+    | NOT expression_statement                                { $$ = malloc(str_size); sprintf($$, "!%s", $2); }
     ;
 
 
