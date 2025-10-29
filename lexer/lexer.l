@@ -55,9 +55,19 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "-"           { return MINUS; }
 "*"           { return MULT; }
 "/"           { return DIV; }
+"%"           { return MOD; }
 "="           { return ASSIGN; }
 
+"+="          { return PLUS_ASSIGN; }
+"-="          { return MINUS_ASSIGN; }
+"*="          { return MULT_ASSIGN; }
+"/="          { return DIV_ASSIGN; }
+"%="          { return MOD_ASSIGN; }
+
 "=="          { return EQUAL; }
+"==="         { return STRICT_EQUAL; }
+"!="          { return NOT_EQUAL; }
+"!=="         { return STRICT_NOT_EQUAL; }
 "<"           { return LESS; }
 "<="          { return LESS_EQUAL; }
 ">"           { return GREATER; }

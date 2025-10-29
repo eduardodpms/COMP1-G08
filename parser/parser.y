@@ -62,16 +62,18 @@ extern int yylineno;
 %token TYPE_NUMBER TYPE_STRING TYPE_BOOLEAN
 
 /* operadores */
-%token PLUS MINUS MULT DIV ASSIGN
-%token EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
+%token PLUS MINUS MULT DIV MOD ASSIGN
+%token PLUS_ASSIGN MINUS_ASSIGN MULT_ASSIGN DIV_ASSIGN MOD_ASSIGN
+%token EQUAL STRICT_EQUAL NOT_EQUAL STRICT_NOT_EQUAL
+%token LESS LESS_EQUAL GREATER GREATER_EQUAL
 %token AND OR NOT
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
 %token CONSOLE_READ CONSOLE_LOG
 
 // Diretivas de precedência e associatividade
 %left PLUS MINUS
-%left MULT DIV
-%left EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
+%left MULT DIV MOD
+%left EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
 %left AND OR
 %right NOT
 %right ASSIGN
@@ -104,7 +106,7 @@ program:
    strings são colocadas no arquivo somente no "program" acima. */
 statement:
     keyword
-    | declaration SEMICOLON{
+    | declaration SEMICOLON {
         $$ = malloc(str_size);
         sprintf($$, "%s;", $1);
     }
@@ -128,6 +130,10 @@ comma_statement:
     attribution
     | output_statement
     | input_statement
+    | comma_statement COMMA comma_statement {
+        $$ = malloc(str_size);
+        sprintf($$, "%s, %s", $1, $3);
+    }
     ;
 
 
@@ -162,13 +168,13 @@ else_statement:
 
 
 keyword:
-    IF LPAREN expression_statement RPAREN statement {
-        $$ = malloc(str_size);
-        sprintf($$, "if (%s) %s", $3, $5);
-    }
-    | IF LPAREN expression_statement RPAREN statement else_statement {
+    IF LPAREN expression_statement RPAREN statement else_statement {
         $$ = malloc(str_size);
         sprintf($$, "if (%s) %s\n%s", $3, $5, $6);
+    }
+    | IF LPAREN expression_statement RPAREN statement {
+        $$ = malloc(str_size);
+        sprintf($$, "if (%s) %s", $3, $5);
     }
     | WHILE LPAREN expression_statement RPAREN statement {
         $$ = malloc(str_size);
@@ -258,7 +264,9 @@ expression_statement:
     | expression_statement MINUS expression_statement         { $$ = malloc(str_size); sprintf($$, "%s - %s", $1, $3); }
     | expression_statement MULT expression_statement          { $$ = malloc(str_size); sprintf($$, "%s * %s", $1, $3); }
     | expression_statement DIV expression_statement           { $$ = malloc(str_size); sprintf($$, "%s / %s", $1, $3); }
+    | expression_statement MOD expression_statement           { $$ = malloc(str_size); sprintf($$, "%s %% %s", $1, $3); }
     | expression_statement EQUAL expression_statement         { $$ = malloc(str_size); sprintf($$, "%s == %s", $1, $3); }
+    | expression_statement NOT_EQUAL expression_statement     { $$ = malloc(str_size); sprintf($$, "%s != %s", $1, $3); }
     | expression_statement LESS expression_statement          { $$ = malloc(str_size); sprintf($$, "%s < %s", $1, $3); }
     | expression_statement LESS_EQUAL expression_statement    { $$ = malloc(str_size); sprintf($$, "%s <= %s", $1, $3); }
     | expression_statement GREATER expression_statement       { $$ = malloc(str_size); sprintf($$, "%s > %s", $1, $3); }
