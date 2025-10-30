@@ -70,16 +70,17 @@ extern int yylineno;
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
 %token CONSOLE_READ CONSOLE_LOG
 
-// Diretivas de precedência e associatividade
+
+// Diretivas de precedência e associatividade%left PLUS MINUS
 %left PLUS MINUS
 %left MULT DIV MOD
-%left EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
+%nonassoc EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
 %left AND OR
 %right NOT
 %right ASSIGN
-%left SEMICOLON COMMA
-%left LPAREN RPAREN LBRACE RBRACE COLON
-%left ELSE ELSE_IF
+%left COMMA LPAREN RPAREN
+%left IF ELSE_IF ELSE
+
 
 /* não-terminais tipados */
 %type <sval> statement
@@ -87,6 +88,7 @@ extern int yylineno;
 %type <sval> scope_statement
 %type <sval> else_statement
 %type <sval> keyword
+%type <sval> declaration_statement
 %type <sval> declaration
 %type <sval> attribution
 %type <sval> output_statement
@@ -106,7 +108,7 @@ program:
    strings são colocadas no arquivo somente no "program" acima. */
 statement:
     keyword
-    | declaration SEMICOLON {
+    | declaration_statement SEMICOLON {
         $$ = malloc(str_size);
         sprintf($$, "%s;", $1);
     }
@@ -181,40 +183,45 @@ keyword:
         $$ = malloc(str_size);
         sprintf($$, "while (%s) %s", $3, $5);
     }
-    | FOR LPAREN declaration SEMICOLON expression_statement SEMICOLON attribution RPAREN statement {
+    | FOR LPAREN declaration_statement SEMICOLON expression_statement SEMICOLON comma_statement RPAREN statement {
         $$ = malloc(str_size);
         sprintf($$, "for (%s; %s; %s) %s", $3, $5, $7, $9);
     }
     ;
 
+
+declaration_statement:
+    var_kind declaration {
+        $$ = malloc(str_size);
+        $1 == CONST ? sprintf($$, "const %s", $2) : sprintf($$, "%s", $2);
+    }
+    ;
+
+
 /* declaracoes */
 declaration:
-    var_kind IDENT COLON TYPE_NUMBER ASSIGN expression_statement {
+    IDENT COLON TYPE_NUMBER ASSIGN expression_statement {
         $$ = malloc(str_size);
-        if ($1 == CONST)
-            sprintf($$, "const int %s = %s", $2, $6);
-        else
-            sprintf($$, "int %s = %s", $2, $6);
+        sprintf($$, "int %s = %s", $1, $5);
     }
-    | var_kind IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL {
+    | IDENT COLON TYPE_STRING ASSIGN STRING_LITERAL {
         $$ = malloc(str_size);  
-        if ($1 == CONST)
-            sprintf($$, "const char* %s = %s", $2, $6);
-        else
-            sprintf($$, "char* %s = %s", $2, $6);
+        sprintf($$, "char *%s = %s", $1, $5);
+    }
+    | declaration COMMA declaration {
+        $$ = malloc(str_size);
+        sprintf($$, "%s, %s", $1, $3);
     }
     /* casos de erro */
-    | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL {
-        int line = (yylineno>0)?yylineno:1;
-        report_error(line, "Tentativa de atribuir string a variável numérica '%s'.", $2);
-        yyerrok;
-        yyclearin;
+    | IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL {
+        int line = (yylineno > 0) ? yylineno : 1;
+        report_error(line, "Tentativa de atribuir string a variável numérica '%s'.", $1);
+        yyerrok, yyclearin;
     }
-    | var_kind IDENT COLON TYPE_STRING ASSIGN NUMBER_LITERAL SEMICOLON {
-        int line = (yylineno>0)?yylineno:1;
-        report_error(line, "Tentativa de atribuir número a variável string '%s'.", $2);
-        yyerrok;
-        yyclearin;
+    | IDENT COLON TYPE_STRING ASSIGN NUMBER_LITERAL {
+        int line = (yylineno > 0) ? yylineno : 1;
+        report_error(line, "Tentativa de atribuir número a variável string '%s'.", $1);
+        yyerrok, yyclearin;
     }
     ;
 
