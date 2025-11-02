@@ -74,7 +74,7 @@ extern int yylineno;
 // Diretivas de precedência e associatividade%left PLUS MINUS
 %left PLUS MINUS
 %left MULT DIV MOD
-%nonassoc EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
+%left EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
 %left AND OR
 %right NOT
 %right ASSIGN
@@ -218,7 +218,7 @@ declaration:
         report_error(line, "Tentativa de atribuir string a variável numérica '%s'.", $1);
         yyerrok, yyclearin;
     }
-    | IDENT COLON TYPE_STRING ASSIGN NUMBER_LITERAL {
+    | IDENT COLON TYPE_STRING ASSIGN expression_statement {
         int line = (yylineno > 0) ? yylineno : 1;
         report_error(line, "Tentativa de atribuir número a variável string '%s'.", $1);
         yyerrok, yyclearin;
@@ -267,6 +267,7 @@ input_statement:
 
 expression_statement:
     NUMBER_LITERAL                                            { $$ = malloc(str_size); sprintf($$, "%d", $1); }
+    | IDENT                                                   { $$ = malloc(str_size); sprintf($$, "%s", $1); }
     | LPAREN expression_statement RPAREN                      { $$ = malloc(str_size); sprintf($$, "(%s)", $2); }
     | expression_statement PLUS expression_statement          { $$ = malloc(str_size); sprintf($$, "%s + %s", $1, $3); }
     | expression_statement MINUS expression_statement         { $$ = malloc(str_size); sprintf($$, "%s - %s", $1, $3); }
