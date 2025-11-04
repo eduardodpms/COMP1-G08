@@ -5,7 +5,7 @@
 #include <string.h>
 
 /* tamanho padrão para strings alocadas */
-#define str_size 256
+#define str_size 1024
 
 //* ponteiros para gerar arquivos *//
 extern FILE *yyin;
@@ -26,10 +26,20 @@ void report_error(int line, const char *fmt, ...) {
     va_start(ap, fmt);
     fprintf(stderr, "Erro (linha %d): ", line);
     vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
+    fprintf(stderr, ";\n");
     va_end(ap);
     compilation_error_count++;
 }
+
+char *indentation(int level) {
+    char *string = calloc(level + 1, 1);
+
+    while(level--) string[level] = '\t';
+    
+    return string;
+}
+
+int indent = 1;
 
 /* obter linha atual via yylineno (mantido pelo flex) */
 extern int yylineno;
@@ -70,8 +80,7 @@ extern int yylineno;
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
 %token CONSOLE_READ CONSOLE_LOG
 
-
-// Diretivas de precedência e associatividade%left PLUS MINUS
+// Diretivas de precedência e associatividade
 %left PLUS MINUS
 %left MULT DIV MOD
 %left EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
@@ -83,31 +92,43 @@ extern int yylineno;
 
 
 /* não-terminais tipados */
+%type <ival> var_kind
 %type <sval> statement
 %type <sval> comma_statement
 %type <sval> scope_statement
+%type <sval> keyword_statement
 %type <sval> else_statement
-%type <sval> keyword
 %type <sval> declaration_statement
 %type <sval> declaration
 %type <sval> attribution
 %type <sval> output_statement
 %type <sval> input_statement
 %type <sval> expression_statement
-%type <ival> var_kind
+%type <sval> flaw_statement
 
 %%
 
 
 program:
     /* vazio */
-    | program statement { fprintf(out, "    %s\n", $2); }
-    ;
+    | program statement { fprintf(out, "%s%s\n", indentation(indent), $2); }
+    | program flaw_statement { yyerrok, yyclearin; }
+    | program error { yyerrok, yyclearin; };
+
+
+var_kind: 
+    LET { $$ = LET; }
+    | CONST { $$ = CONST ; }
+    | VAR { $$ = VAR; };
+
 
 /* obs: todas as statements retornam ponteiros/strings, e essas
    strings são colocadas no arquivo somente no "program" acima. */
 statement:
-    keyword
+    keyword_statement {
+        $$ = malloc(str_size);
+        sprintf($$, "%s", $1);
+    }
     | declaration_statement SEMICOLON {
         $$ = malloc(str_size);
         sprintf($$, "%s;", $1);
@@ -116,68 +137,49 @@ statement:
         $$ = malloc(str_size);
         sprintf($$, "%s;", $1);
     }
-    | LBRACE scope_statement {
+    | lbrace scope_statement rbrace {
         $$ = malloc(str_size);
-        sprintf($$, "{\n%s", $2);
-    }
-    /* quando ocorre um erro dentro de uma statement, sincroniza até ';' e segue. */
-    | error SEMICOLON {
-        yyerrok;
-        yyclearin;
-        $$ = strdup("");
-      }
-    ;
+        sprintf($$, "{\n%s\n%s}", $2, indentation(indent));
+    };
 
 
+/* expressões separáveis por vírgula */
 comma_statement:
     attribution
     | output_statement
     | input_statement
-    | comma_statement COMMA comma_statement {
-        $$ = malloc(str_size);
-        sprintf($$, "%s, %s", $1, $3);
-    }
-    ;
+    | comma_statement COMMA comma_statement { $$ = malloc(str_size); sprintf($$, "%s, %s", $1, $3);
+    };
 
 
-/* obs: scope_statement trata escopos por meio de
-   recursão, analisando chaves "}" e statements. */
+/* expressão(ões) dentro de um escopo */
 scope_statement:
     statement scope_statement {
         $$ = malloc(str_size);
-        sprintf($$, "%s\n%s", $1, $2);
+        sprintf($$, "%s%s\n%s", indentation(indent), $1, $2);
     }
-    | statement RBRACE {
+    | statement {
         $$ = malloc(str_size);
-        sprintf($$, "%s\n}", $1);
-    }
-    ;
+        sprintf($$, "%s%s", indentation(indent), $1);
+    };
 
 
-else_statement:
-    ELSE_IF LPAREN expression_statement RPAREN statement else_statement {
-        $$ = malloc(str_size);
-        sprintf($$, "else if (%s) %s\n%s", $3, $5, $6);
-    }
-    | ELSE_IF LPAREN expression_statement RPAREN statement {
-        $$ = malloc(str_size);
-        sprintf($$, "else if (%s) %s", $3, $5);
-    }
-    | ELSE statement {
-        $$ = malloc(str_size);
-        sprintf($$, "else %s", $2);
-    }
-    ;
+lbrace:
+    LBRACE { indent++; }; /* incrementa indentação */
+
+rbrace:
+    RBRACE { indent--; }; /* decrementa indentação */
 
 
-keyword:
-    IF LPAREN expression_statement RPAREN statement else_statement {
-        $$ = malloc(str_size);
-        sprintf($$, "if (%s) %s\n%s", $3, $5, $6);
-    }
-    | IF LPAREN expression_statement RPAREN statement {
+/* estruturas de controle (palavra reservada + escopo) */
+keyword_statement:
+    IF LPAREN expression_statement RPAREN statement {
         $$ = malloc(str_size);
         sprintf($$, "if (%s) %s", $3, $5);
+    }
+    | IF LPAREN expression_statement RPAREN statement else_statement {
+        $$ = malloc(str_size);
+        sprintf($$, "if (%s) %s %s", $3, $5, $6);
     }
     | WHILE LPAREN expression_statement RPAREN statement {
         $$ = malloc(str_size);
@@ -186,16 +188,30 @@ keyword:
     | FOR LPAREN declaration_statement SEMICOLON expression_statement SEMICOLON comma_statement RPAREN statement {
         $$ = malloc(str_size);
         sprintf($$, "for (%s; %s; %s) %s", $3, $5, $7, $9);
+    };
+
+
+/* bloco de continuação do if */
+else_statement:
+    ELSE_IF LPAREN expression_statement RPAREN statement else_statement {
+        $$ = malloc(str_size);
+        sprintf($$, "else if (%s) %s %s", $3, $5, $6);
     }
-    ;
+    | ELSE_IF LPAREN expression_statement RPAREN statement {
+        $$ = malloc(str_size);
+        sprintf($$, "else if (%s) %s", $3, $5);
+    }
+    | ELSE statement {
+        $$ = malloc(str_size);
+        sprintf($$, "else %s", $2);
+    };
 
 
 declaration_statement:
     var_kind declaration {
         $$ = malloc(str_size);
         $1 == CONST ? sprintf($$, "const %s", $2) : sprintf($$, "%s", $2);
-    }
-    ;
+    };
 
 
 /* declaracoes */
@@ -215,23 +231,21 @@ declaration:
     /* casos de erro */
     | IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL {
         int line = (yylineno > 0) ? yylineno : 1;
-        report_error(line, "Tentativa de atribuir string a variável numérica '%s'.", $1);
+        report_error(line, "Tentativa de atribuir string a variável numérica '%s'", $1);
         yyerrok, yyclearin;
     }
     | IDENT COLON TYPE_STRING ASSIGN expression_statement {
         int line = (yylineno > 0) ? yylineno : 1;
-        report_error(line, "Tentativa de atribuir número a variável string '%s'.", $1);
+        report_error(line, "Tentativa de atribuir número a variável string '%s'", $1);
         yyerrok, yyclearin;
-    }
-    ;
+    };
 
 
 attribution:
     IDENT ASSIGN expression_statement {
         $$ = malloc(str_size);
         sprintf($$, "%s = %s", $1, $3);
-    }
-    ;
+    };
 
 
 output_statement:
@@ -261,8 +275,7 @@ input_statement:
     CONSOLE_READ LPAREN IDENT RPAREN {
         $$ = malloc(str_size);
         sprintf($$, "scanf(\"%%d\", &%s)", $3);
-    }
-;
+    };
 
 
 expression_statement:
@@ -282,15 +295,19 @@ expression_statement:
     | expression_statement GREATER_EQUAL expression_statement { $$ = malloc(str_size); sprintf($$, "%s >= %s", $1, $3); }
     | expression_statement AND expression_statement           { $$ = malloc(str_size); sprintf($$, "%s && %s", $1, $3); }
     | expression_statement OR expression_statement            { $$ = malloc(str_size); sprintf($$, "%s || %s", $1, $3); }
-    | NOT expression_statement                                { $$ = malloc(str_size); sprintf($$, "!%s", $2); }
-    ;
+    | NOT expression_statement                                { $$ = malloc(str_size); sprintf($$, "!%s", $2); };
 
 
-var_kind: 
-    LET { $$ = LET; }
-    | CONST { $$ = CONST ; }
-    | VAR { $$ = VAR; }
-    ;
+flaw_statement:
+    RBRACE { 
+        int line = (yylineno > 0) ? yylineno : 1;
+        report_error(line, "Erro de identação (unexpected '}')");
+    }
+    | else_statement {
+        int line = (yylineno > 0) ? yylineno : 1;
+        report_error(line, "Erro de associação (expected 'if')");
+    };
+
 
 %%
 
@@ -321,6 +338,11 @@ int main(int argc, char **argv) {
 
     int parse_ret = yyparse();
 
+    if(indent > 1) {
+        int line = (yylineno > 0) ? yylineno : 1;
+        report_error(line, "Erro de identação (expected '}')");
+    }
+
     /* Se o parser retornou erro FATAL e não houve outros erros reportados, considere fatal. */
     if (parse_ret != 0 && compilation_error_count == 0) {
         fprintf(stderr, "Parsing failed (fatal). Compilation aborted.\n");
@@ -332,7 +354,7 @@ int main(int argc, char **argv) {
 
     /* se encontramos erros (léxicos/sintáticos/semânticos), não geramos output final */
     if (compilation_error_count > 0) {
-        fprintf(stderr, "Encontrados %d erro(s). Compilação abortada.\n", compilation_error_count);
+        fprintf(stderr, "Compilação abortada: %d erro(s) encontrado(s).\n", compilation_error_count);
         fclose(yyin);
         fclose(out);
         remove("output.c");
@@ -343,7 +365,7 @@ int main(int argc, char **argv) {
 
     fclose(yyin);
     fclose(out);
-    printf("Compilação bem-sucedida. output.c gerado.\n");
+    printf("Compilação bem-sucedida. 'output.c' gerado.\n");
     return EXIT_SUCCESS;
 }
 
