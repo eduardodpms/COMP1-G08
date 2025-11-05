@@ -85,8 +85,8 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "{"           { return LBRACE; }
 "}"           { return RBRACE; }
 
-"console.read"    { return CONSOLE_READ; } /* token para input */
-"console.log" { return CONSOLE_LOG; }  /* token para output */
+"console.read"      { return CONSOLE_READ; }
+"console.log"       { return CONSOLE_LOG; }
 
 [0-9]+                 { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
 \"[^\"]*\"             { yylval.sval = strdup(yytext); return STRING_LITERAL; }
