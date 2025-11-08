@@ -1,13 +1,3 @@
-/******************************************************
-FGA0003 - Compiladores 1
-Curso de Engenharia de Software
-Universidade de Brasília (UnB)
-
-Arquivo: parser.y
-Descrição: Exemplo de gramática para expressão aritmética
-******************************************************/
-
-
 %{
 #include <stdio.h>
 #include <stdlib.h>
