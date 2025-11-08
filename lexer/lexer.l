@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+#include <unistd.h>
+#include <errno.h>
 #include "parser.tab.h"   
 
 extern int yylineno;   /* mantido pelo flex quando usamos %option yylineno */
@@ -10,6 +13,8 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 
 %option yylineno
 %option noyywrap
+%option nounput
+%option noinput
 
 %%
 

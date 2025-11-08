@@ -13,6 +13,10 @@ Descrição: Exemplo de gramática para expressão aritmética
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stddef.h>
+#include <inttypes.h>
+#include <unistd.h>
+#include <errno.h>
 
 //* ponteiros para gerar arquivos *//
 extern FILE *yyin;

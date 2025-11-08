@@ -1,67 +1,69 @@
-# Detecta o sistema operacional
-# ("Linux"=Linux, "Darwin"=Mac, "Windows_NT"=Windows)
+# Makefile portátil para projeto bison+flex (arquivos em parser/ e lexer/)
 UNAME_S := $(shell uname -s)
 
-# Nome do executável final
-EXEC = bin/parser
+# Diretórios
+SRC_DIR := src
+BIN_DIR := bin
 
-# Diretórios a serem gerados
-SRC_DIR = src
-BIN_DIR = bin
+# Executável final
+EXEC := $(BIN_DIR)/parser
 
-# Arquivos-fonte do Bison e do Flex
-BISON_FILE = parser/parser.y
-FLEX_FILE  = lexer/lexer.l
+# Fontes estão nas pastas originais
+BISON_FILE := parser/parser.y
+FLEX_FILE  := lexer/lexer.l
 
-# Arquivos que o Bison vai gerar
-BISON_C   = src/parser.tab.c
-BISON_H   = src/parser.tab.h
+# Arquivos gerados
+BISON_C := $(SRC_DIR)/parser.tab.c
+BISON_H := $(SRC_DIR)/parser.tab.h
+FLEX_C  := $(SRC_DIR)/lex.yy.c
 
-# Arquivo gerado pelo Flex
-FLEX_C    = src/lex.yy.c
-
-# Arquivo de saída do compilador
-OUTPUT_C = output.c
-
-# Parâmetros opcionais ao Bison e Flex
-BISON_FLAGS = -d -o # -d gera o arquivo .h (token definitions), -o define o diretório de saída
-FLEX_FLAGS  = -o # -o define o diretório de saída
-
-# Parâmetros de compilação
-CC      = gcc
-CFLAGS  = -o # -o define o diretório de saída
-
-ifeq ($(OS),Linux) # biblioteca do Flex (Linux)
-	LDFLAGS = -lfl
+# Compilador e flags
+ifeq ($(UNAME_S),Darwin)
+	CC ?= clang
+	LDFLAGS ?= -ll
+else
+	CC ?= gcc
+	LDFLAGS ?= -lfl
 endif
 
-ifeq ($(OS),Windows_NT) # biblioteca do Flex (Windows)
-	LDFLAGS = -lfl
-endif
+# Compilação padrão (sem símbolos de debug)
+CFLAGS ?= -std=c11 -Wall -Wextra -O2
 
-ifeq ($(OS),Darwin)	# biblioteca do Flex (Mac)
-    LDFLAGS = -ll
-endif
+.PHONY: all clean dir debug rebuild
 
-# Regra padrão (alvo 'all' vai gerar o executável)
+# Build padrão
 all: $(EXEC)
 
-# Regra para gerar o executável: depende dos arquivos gerados por Bison e Flex
-$(EXEC): clean dir $(FLEX_C) $(BISON_C)
-	$(CC) $(CFLAGS) $@  $(BISON_C) $(FLEX_C) $(LDFLAGS)
-
-# Regra para rodar o Flex: gera lex.yy.c
-$(FLEX_C): $(FLEX_FILE)
-	flex $(FLEX_FLAGS) $(FLEX_C)  $(FLEX_FILE)
-
-# Regra para rodar o Bison: gera parser.tab.c e parser.tab.h
-$(BISON_C) $(BISON_H): $(BISON_FILE)
-	bison $(BISON_FLAGS) $(BISON_C)  $(BISON_FILE)
-
-# Cria as pastas src/ e bin/ se não existirem
+# Gera diretórios se necessário
 dir:
-	mkdir -p $(SRC_DIR) $(BIN_DIR)
+	@mkdir -p $(SRC_DIR) $(BIN_DIR)
 
-# Regra de limpeza: remove arquivos gerados
+# Bison -> gera parser.tab.c e parser.tab.h em src/
+$(BISON_C) $(BISON_H): $(BISON_FILE) | dir
+	bison -d -o $(BISON_C) $(BISON_FILE)
+	@echo "[bison] gerado: $(BISON_C) $(BISON_H)"
+
+# Flex -> depende do header do bison para tokens
+$(FLEX_C): $(FLEX_FILE) $(BISON_H) | dir
+	flex -o $(FLEX_C) $(FLEX_FILE)
+	@echo "[flex] gerado: $(FLEX_C)"
+
+# Link / compile: bison antes do flex na linha de compilação
+$(EXEC): $(BISON_C) $(BISON_H) $(FLEX_C) | dir
+	$(CC) $(CFLAGS) $(BISON_C) $(FLEX_C) -o $(EXEC) $(LDFLAGS)
+	@echo "[build] executavel: $(EXEC)"
+	@rm -rf $(EXEC).dSYM 2>/dev/null || true
+
+# Regra de debug (mantém -g para uso opcional)
+debug: $(BISON_C) $(BISON_H) $(FLEX_C) | dir
+	$(CC) -std=c11 -Wall -Wextra -g $(BISON_C) $(FLEX_C) -o $(EXEC) $(LDFLAGS)
+	@echo "[debug build] executavel: $(EXEC)"
+
+# Rebuild completo
+rebuild: clean all
+
+# Limpeza
 clean:
-	rm -f $(EXEC) $(OUTPUT_C) $(BISON_C) $(BISON_H) $(FLEX_C)
+	-rm -f $(EXEC) $(BISON_C) $(BISON_H) $(FLEX_C) output.c
+	-rm -rf $(EXEC).dSYM
+	@echo "[clean] removidos binarios e gerados"
