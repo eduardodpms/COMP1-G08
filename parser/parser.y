@@ -7,6 +7,8 @@
 #include <stdarg.h>
 #include <string.h>
 
+void ast_free(NoAST *root);
+
 // ast
 NoAST *ast_root = NULL;
 
@@ -76,6 +78,9 @@ extern int yylineno;
 /* operadores */
 %token PLUS MINUS MULT DIV ASSIGN
 
+/* comparadores */
+%token EQ NEQ LT GT LE GE
+
 // precedência e associatividade dos operadores
 %left PLUS MINUS
 %left MULT DIV
@@ -91,6 +96,12 @@ extern int yylineno;
 /* não-terminais tipados */
 %type <ival> var_kind
 %type <ast_node> declaration statement expr
+%type <ast_node> stmt_list
+%type <ast_node> block
+%type <ast_node> if_stmt while_stmt for_stmt
+%type <ast_node> declaration_or_expr
+%type <ast_node> switch_stmt case_list case_item
+%type <ast_node> console_stmt
 
 %%
 
@@ -113,47 +124,67 @@ statement:
 declaration:
     /* number */
     var_kind IDENT COLON TYPE_NUMBER ASSIGN expr SEMICOLON {
-        $$ = criarNoDecl($1, TIPO_NUMBER, $2, $6);
-        inserirSimbolo($2, TIPO_NUMBER);
+        char *ident_name = $2;
+        $$ = criarNoDecl($1, TIPO_NUMBER, ident_name, $6);
+        inserirSimbolo(ident_name, TIPO_NUMBER);
 
         int ok;
         int valor = avaliarExpr($6, &ok);
         if(ok) {
-            atualizarValorConstante($2, valor);
+            atualizarValorConstante(ident_name, valor);
         }
+
+        free(ident_name); /* liberar string do lexer */
     }
 
     /* string */
     | var_kind IDENT COLON TYPE_STRING ASSIGN expr SEMICOLON {
-        $$ = criarNoDecl($1, TIPO_STRING, $2, $6);
-        inserirSimbolo($2, TIPO_STRING);
+        char *ident_name = $2;
+        $$ = criarNoDecl($1, TIPO_STRING, ident_name, $6);
+        inserirSimbolo(ident_name, TIPO_STRING);
+        free(ident_name);
     }
     /* boolean */
     | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN expr SEMICOLON {
-        $$ = criarNoDecl($1, TIPO_BOOLEAN, $2, $6);
-        inserirSimbolo($2, TIPO_BOOLEAN);
+        char *ident_name = $2;
+        $$ = criarNoDecl($1, TIPO_BOOLEAN, ident_name, $6);
+        inserirSimbolo(ident_name, TIPO_BOOLEAN);
+        free(ident_name);
     }
     /* casos de erro */
     | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL SEMICOLON {
+        char *ident_name = $2;
+        char *str_lit = $6;
         int line = (yylineno>0)?yylineno:1;
-        report_error(line, "Tentativa de atribuir string a variável numérica '%s'.", $2);
+        report_error(line, "Tentativa de atribuir string a variável numérica '%s'.", ident_name);
+        free(ident_name);
+        free(str_lit);
         yyerrok;
         yyclearin;
+
     }
     | var_kind IDENT COLON TYPE_STRING ASSIGN NUMBER_LITERAL SEMICOLON {
+        char *ident_name = $2;
         int line = (yylineno>0)?yylineno:1;
-        report_error(line, "Tentativa de atribuir número a variável string '%s'.", $2);
+        report_error(line, "Tentativa de atribuir número a variável string '%s'.", ident_name);
+        free(ident_name);
         yyerrok;
         yyclearin;
     }
     | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN STRING_LITERAL SEMICOLON {
-    int line = (yylineno>0)?yylineno:1;
-    report_error(line, "Tentativa de atribuir string a variável boolean '%s'.", $2);
-    yyerrok; yyclearin;
+        char *ident_name = $2;
+        char *str_lit = $6;
+        int line = (yylineno>0)?yylineno:1;
+        report_error(line, "Tentativa de atribuir string a variável boolean '%s'.", ident_name);
+        free(ident_name);
+        free(str_lit);
+        yyerrok; yyclearin;
     }
     | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN NUMBER_LITERAL SEMICOLON {
+        char *ident_name = $2;
         int line = (yylineno>0)?yylineno:1;
-        report_error(line, "Tentativa de atribuir número a variável boolean '%s'.", $2);
+        report_error(line, "Tentativa de atribuir número a variável boolean '%s'.", ident_name);
+        free(ident_name);
         yyerrok; yyclearin;
     }
     ;
@@ -171,25 +202,35 @@ expr:
     | expr DIV expr {
         $$ = criarNoOp('/', $1, $3);
     }
+    | expr EQ expr   { $$ = NULL; }
+    | expr NEQ expr  { $$ = NULL; }
+    | expr LT expr   { $$ = NULL; }
+    | expr GT expr   { $$ = NULL; }
+    | expr LE expr   { $$ = NULL; }
+    | expr GE expr   { $$ = NULL; }
     | NUMBER_LITERAL {
         $$ = criarNoNum($1);
     } 
     | STRING_LITERAL {
         $$ = criarNoStr($1);
+        free($1);
     }
     | BOOLEAN_LITERAL {
         $$ = criarNoBool($1);
     }
     | IDENT {
-        $$ = criarNoId($1);
-
+    char *ident_name = $1;
         int ok;
-        int valor = obterValor($1, &ok);
+        int valor = obterValor(ident_name, &ok); /* consultar tabela antes de decidir nó */
+
         if (ok) {
-            // Se o identificador tem valor constante, substitui pelo valor
-            free($$);
+            /* substituir por número constante */
             $$ = criarNoNum(valor);
+        } else {
+            $$ = criarNoId(ident_name);
         }
+
+        free(ident_name);
     }
     | '(' expr ')' {
         $$ = $2;
@@ -219,6 +260,102 @@ var_kind:
     | VAR { $$ = VK_VAR; }
     ;
 
+/* stmt_list: encadeia statements via prox (retorna primeiro) */
+stmt_list:
+    /* empty */ { $$ = NULL; }
+  | stmt_list statement {
+        if ($2) {
+            if (!$1) $$ = $2;
+            else $$ = adicionarDeclaracao($1, $2);
+        } else $$ = $1;
+    }
+;
+
+/* block with scope handling */
+block:
+    LBRACE { pushScope(); } stmt_list RBRACE { popScope(); $$ = criarNoBlock($3); }
+;
+
+/* console.log(expression);  -> por enquanto gera nó nulo (aceita sintaxe) */
+console_stmt:
+      CONSOLE_LOG LPAREN expr RPAREN SEMICOLON {
+          $$ = NULL; /* substituir por criarNoConsoleLog($3) quando existir */
+      }
+    ;
+
+/* extend statement to accept blocks, control flows and console.log */
+statement:
+      declaration { $$ = $1; }
+    | block       { $$ = $1; }
+    | if_stmt     { $$ = $1; }
+    | while_stmt  { $$ = $1; }
+    | for_stmt    { $$ = $1; }
+    | switch_stmt { $$ = $1; }
+    | console_stmt { $$ = $1; }   /* <-- adicionado: aceita console.log(...) */
+    | error SEMICOLON { yyerrok; yyclearin; $$ = NULL; }
+    ;
+
+/* if/else */
+if_stmt:
+    IF LPAREN expr RPAREN statement {
+        $$ = criarNoIf($3, $5, NULL);
+    }
+  | IF LPAREN expr RPAREN statement ELSE statement {
+        $$ = criarNoIf($3, $5, $7);
+    }
+;
+
+/* while */
+while_stmt:
+    WHILE LPAREN expr RPAREN statement {
+        $$ = criarNoWhile($3, $5);
+    }
+;
+
+/* for (init ; cond ; update) statement
+   where init can be a declaration or an expr or empty
+*/
+declaration_or_expr:
+    declaration { $$ = $1; }
+  | expr { $$ = $1; }
+  | /* empty */ { $$ = NULL; }
+;
+
+for_stmt:
+    FOR LPAREN declaration_or_expr SEMICOLON expr SEMICOLON declaration_or_expr RPAREN statement {
+        $$ = criarNoFor($3, $5, $7, $9);
+    }
+;
+
+/* switch/case
+   switch (expr) { case const: stmt* [break;] ... default: stmt* }
+   For the PoC we parse cases into NO_CASE nodes chained by prox;
+*/
+switch_stmt:
+    SWITCH LPAREN expr RPAREN LBRACE case_list RBRACE {
+        $$ = criarNoSwitch($3, $6);
+    }
+;
+
+case_list:
+    /* empty */ { $$ = NULL; }
+  | case_list case_item {
+        if (!$1) $$ = $2;
+        else $$ = adicionarDeclaracao($1, $2);
+    }
+;
+
+case_item:
+    CASE NUMBER_LITERAL COLON stmt_list {
+        /* case with numeric literal (simplified) */
+        NoAST *case_expr = criarNoNum($2);
+        NoAST *case_body = $4;
+        $$ = criarNoCase(case_expr, case_body);
+    }
+  | DEFAULT COLON stmt_list {
+        $$ = criarNoCase(NULL, $3); /* default case -> caseExpr NULL */
+    }
+;
 %%
 
 int main(int argc, char **argv) {
@@ -232,6 +369,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
+    pushScope();
     int parse_ret = yyparse();
 
     verificarTipo(ast_root);
@@ -250,6 +388,10 @@ int main(int argc, char **argv) {
     // === GERAR C ===
     gerarCodigoC(ast_root, "saida.c");
     printf("\nCódigo C gerado em 'saida.c'\n");
+
+    ast_free(ast_root);
+    ast_root = NULL;
+    liberarTabelaSimbolos();
 
     fclose(yyin);
     return EXIT_SUCCESS;

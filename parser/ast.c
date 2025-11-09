@@ -1,8 +1,16 @@
-#include "ast.h"
-#include <stdlib.h>
-#include <string.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+#include <stddef.h> 
 #include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdlib.h> 
+
+#include "ast.h"
 #include "tabela.h"
+#include "codegen.h"
 
 extern int yylineno;                              // linha atual do parser
 extern void report_error(int, const char *, ...); // declarada no parser.y
@@ -32,9 +40,11 @@ const char *tipoNoToString(NoTipo tipo)
 NoAST *criarNoNum(int valor)
 {
     NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
     novo->tipo = NO_NUM;
     novo->valor = valor;
     novo->esquerda = novo->direita = NULL;
+    novo->prox = NULL;
     novo->linha = yylineno;
     return novo;
 }
@@ -42,10 +52,16 @@ NoAST *criarNoNum(int valor)
 NoAST *criarNoStr(const char *texto)
 {
     NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
     novo->tipo = NO_STR;
-    strncpy(novo->texto, texto, sizeof(novo->texto));
-    novo->texto[sizeof(novo->texto) - 1] = '\0'; // Garantir terminação nula
+    if (texto) {
+        strncpy(novo->texto, texto, sizeof(novo->texto) - 1);
+        novo->texto[sizeof(novo->texto) - 1] = '\0'; // Garantir terminação nula
+    } else {
+        novo->texto[0] = '\0'; // Garantir terminação nula
+    }
     novo->esquerda = novo->direita = NULL;
+    novo->prox = NULL;
     novo->linha = yylineno;
     return novo;
 }
@@ -54,9 +70,11 @@ NoAST *criarNoStr(const char *texto)
 NoAST *criarNoBool(int valor)
 {
     NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
     novo->tipo = NO_BOOL;
     novo->valor = valor;
     novo->esquerda = novo->direita = NULL;
+    novo->prox = NULL;
     novo->linha = yylineno;
     return novo;
 }
@@ -70,9 +88,16 @@ NoAST *criarNoId(const char *nome)
         report_error(line, "Uso de variável '%s' não declarada.", nome);
     }
     NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
     novo->tipo = NO_ID;
-    strcpy(novo->nome, nome);
+    if (nome) {
+        strncpy(novo->nome, nome, sizeof(novo->nome) - 1);
+        novo->nome[sizeof(novo->nome) - 1] = '\0';
+    } else {
+        novo->nome[0] = '\0';
+    }
     novo->esquerda = novo->direita = NULL;
+    novo->prox = NULL;
     novo->linha = yylineno;
     return novo;
 }
@@ -81,10 +106,12 @@ NoAST *criarNoId(const char *nome)
 NoAST *criarNoOp(char operador, NoAST *esquerda, NoAST *direita)
 {
     NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
     novo->tipo = NO_OP;
     novo->valor = operador;
     novo->esquerda = esquerda;
     novo->direita = direita;
+    novo->prox = NULL;
     novo->linha = yylineno;
     return novo;
 }
@@ -93,15 +120,21 @@ NoAST *criarNoOp(char operador, NoAST *esquerda, NoAST *direita)
 NoAST *criarNoDecl(VarKind var_kind, TipoDado tipo_dado, const char *nome, NoAST *valor)
 {
     NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
     novo->tipo = NO_DECL;
     novo->decl.tipo = var_kind;
     novo->decl.tipo_dado = tipo_dado;
-    strncpy(novo->decl.nome, nome, sizeof(novo->decl.nome) - 1);
-    novo->decl.nome[sizeof(novo->decl.nome) - 1] = '\0';
+    if (nome) {
+        strncpy(novo->decl.nome, nome, sizeof(novo->decl.nome) - 1);
+        novo->decl.nome[sizeof(novo->decl.nome) - 1] = '\0';
+    } else {
+        novo->decl.nome[0] = '\0';
+    }
 
     novo->decl.expr = valor; // <-- aqui guardamos o nó AST inteiro
 
     novo->esquerda = novo->direita = NULL;
+    novo->prox = NULL;
     novo->linha = yylineno;
     return novo;
 }
@@ -112,12 +145,109 @@ NoAST *adicionarDeclaracao(NoAST *raiz, NoAST *declaracao)
         return declaracao;
 
     NoAST *atual = raiz;
-    while (atual->direita)
+    while (atual->prox)
     {
-        atual = atual->direita;
+        atual = atual->prox;
     }
-    atual->direita = declaracao;
+    atual->prox = declaracao;
     return raiz;
+}
+
+NoAST *criarNoBlock(NoAST *firstStatement)
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_BLOCK;
+    novo->esquerda = novo->direita = NULL;
+    novo->prox = NULL;
+    novo->body = firstStatement; // primeiro statement do bloco (pode ser NULL)
+    novo->linha = yylineno;
+    return novo;
+}
+
+NoAST *criarNoIf(NoAST *cond, NoAST *then_branch, NoAST *else_branch)
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_IF;
+    novo->esquerda = cond;
+    novo->direita = then_branch;
+    novo->prox = else_branch; // usamos prox para else-branch
+    novo->body = NULL;
+    novo->linha = yylineno;
+    return novo;
+}
+
+NoAST *criarNoWhile(NoAST *cond, NoAST *body)
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_WHILE;
+    novo->esquerda = cond;
+    novo->direita = NULL;
+    novo->prox = NULL;
+    novo->body = body;
+    novo->linha = yylineno;
+    return novo;
+}
+
+NoAST *criarNoFor(NoAST *init, NoAST *cond, NoAST *update, NoAST *body)
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_FOR;
+    novo->esquerda = init;
+    novo->direita = cond;
+    novo->prox = update;
+    novo->body = body;
+    novo->linha = yylineno;
+    return novo;
+}
+
+NoAST *criarNoBreak()
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_BREAK;
+    novo->esquerda = novo->direita = novo->prox = novo->body = NULL;
+    novo->linha = yylineno;
+    return novo;
+}
+
+NoAST *criarNoContinue()
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_CONTINUE;
+    novo->esquerda = novo->direita = novo->prox = novo->body = NULL;
+    novo->linha = yylineno;
+    return novo;
+}
+
+NoAST *criarNoCase(NoAST *caseExpr, NoAST *caseBody)
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_CASE;
+    novo->esquerda = caseExpr;
+    novo->direita = NULL;
+    novo->prox = NULL; // next case
+    novo->body = caseBody;
+    novo->linha = yylineno;
+    return novo;
+}
+
+NoAST *criarNoSwitch(NoAST *expr, NoAST *cases)
+{
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_SWITCH;
+    novo->esquerda = expr;
+    novo->direita = NULL;
+    novo->prox = NULL;
+    novo->body = cases;
+    novo->linha = yylineno;
+    return novo;
 }
 
 TipoDado inferirTipo(NoAST *expr)
@@ -136,7 +266,7 @@ TipoDado inferirTipo(NoAST *expr)
     case NO_ID:
     {
         TipoDado tipo = obterTipo(expr->nome);
-        if (tipo == -1)
+        if (tipo == (TipoDado)-1)
             report_error(yylineno, "Uso de variável '%s' não declarada", expr->nome);
         return tipo;
     }
@@ -163,7 +293,7 @@ void verificarTiposAST(NoAST *raiz)
     if (raiz->tipo == NO_DECL)
     {
         TipoDado tipo_expr = inferirTipo(raiz->decl.expr);
-        if (tipo_expr != -1 && tipo_expr != raiz->decl.tipo_dado)
+        if (tipo_expr != (TipoDado)-1 && tipo_expr != raiz->decl.tipo_dado)
             report_error(yylineno, "Atribuição inválida: variável '%s' recebe tipo diferente do declarado", raiz->decl.nome);
 
         verificarTiposAST(raiz->decl.expr);
@@ -335,16 +465,125 @@ void imprimirAST_rec(NoAST *raiz, int nivel)
         }
         break;
 
+    case NO_BLOCK:
+        printf("BLOCK:\n");
+        if (raiz->body)
+        {
+            imprimirIndentacao(nivel + 1);
+            printf("Statements:\n");
+            imprimirAST_rec(raiz->body, nivel + 2);
+        }
+        break;
+
+    case NO_IF:
+        printf("IF (line %d):\n", raiz->linha);
+        if (raiz->esquerda) {
+            imprimirIndentacao(nivel + 1); printf("Cond:\n");
+            imprimirAST_rec(raiz->esquerda, nivel + 2);
+        }
+        if (raiz->direita) {
+            imprimirIndentacao(nivel + 1); printf("Then:\n");
+            imprimirAST_rec(raiz->direita, nivel + 2);
+        }
+        if (raiz->prox) {
+            imprimirIndentacao(nivel + 1); printf("Else:\n");
+            imprimirAST_rec(raiz->prox, nivel + 2);
+        }
+        break;
+
+    case NO_WHILE:
+        printf("WHILE (line %d):\n", raiz->linha);
+        if (raiz->esquerda) {
+            imprimirIndentacao(nivel + 1); printf("Cond:\n");
+            imprimirAST_rec(raiz->esquerda, nivel + 2);
+        }
+        if (raiz->body) {
+            imprimirIndentacao(nivel + 1); printf("Body:\n");
+            imprimirAST_rec(raiz->body, nivel + 2);
+        }
+        break;
+
+    case NO_FOR:
+        printf("FOR (line %d):\n", raiz->linha);
+        if (raiz->esquerda) {
+            imprimirIndentacao(nivel + 1); printf("Init:\n");
+            imprimirAST_rec(raiz->esquerda, nivel + 2);
+        }
+        if (raiz->direita) {
+            imprimirIndentacao(nivel + 1); printf("Cond:\n");
+            imprimirAST_rec(raiz->direita, nivel + 2);
+        }
+        if (raiz->prox) {
+            imprimirIndentacao(nivel + 1); printf("Update:\n");
+            imprimirAST_rec(raiz->prox, nivel + 2);
+        }
+        if (raiz->body) {
+            imprimirIndentacao(nivel + 1); printf("Body:\n");
+            imprimirAST_rec(raiz->body, nivel + 2);
+        }
+        break;
+
+    case NO_BREAK:
+        printf("BREAK\n");
+        break;
+    case NO_CONTINUE:
+        printf("CONTINUE\n");
+        break;
+
+    case NO_SWITCH:
+        printf("SWITCH (line %d):\n", raiz->linha);
+        if (raiz->esquerda) {
+            imprimirIndentacao(nivel + 1); printf("Expr:\n");
+            imprimirAST_rec(raiz->esquerda, nivel + 2);
+        }
+        if (raiz->body) {
+            imprimirIndentacao(nivel + 1); printf("Cases:\n");
+            imprimirAST_rec(raiz->body, nivel + 2);
+        }
+        break;
+
+    case NO_CASE:
+        if (raiz->esquerda) {
+            printf("CASE:\n");
+            imprimirIndentacao(nivel + 1); printf("Value:\n");
+            imprimirAST_rec(raiz->esquerda, nivel + 2);
+        } else {
+            printf("DEFAULT:\n");
+        }
+        if (raiz->body) {
+            imprimirIndentacao(nivel + 1); printf("Body:\n");
+            imprimirAST_rec(raiz->body, nivel + 2);
+        }
+        break;
+
+
     default:
         printf("(NO DESCONHECIDO)\n");
     }
 
     // Próxima declaração encadeada
-    if (raiz->direita)
-        imprimirAST_rec(raiz->direita, nivel);
+    if (raiz->prox)
+        imprimirAST_rec(raiz->prox, nivel);
 }
 
 void imprimirAST(NoAST *raiz)
 {
     imprimirAST_rec(raiz, 0);
+}
+
+void ast_free(NoAST *node)
+{
+    if (!node) return;
+
+    ast_free(node->esquerda);
+    ast_free(node->direita);
+
+    if (node->tipo == NO_DECL && node->decl.expr) {
+        ast_free(node->decl.expr);
+        node->decl.expr = NULL;
+    }
+
+    ast_free(node->prox);
+
+    free(node);
 }

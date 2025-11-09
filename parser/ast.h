@@ -16,7 +16,15 @@ typedef enum
     NO_OP,
     NO_DECL,
     NO_STR,
-    NO_BOOL
+    NO_BOOL,
+    NO_BLOCK,
+    NO_IF,
+    NO_WHILE,
+    NO_FOR,
+    NO_BREAK,
+    NO_CONTINUE,
+    NO_SWITCH,
+    NO_CASE
 } NoTipo;
 
 typedef enum
@@ -48,6 +56,8 @@ struct NoAST
     };
     NoAST *esquerda;
     NoAST *direita;
+    NoAST *prox;
+    NoAST *body;
 
     int linha;
 };
@@ -66,6 +76,22 @@ NoAST *criarNoOp(char operador, NoAST *esquerda, NoAST *direita);
 NoAST *criarNoDecl(VarKind var_kind, TipoDado tipo_dado, const char *nome, NoAST *valor);
 // Adiciona uma declaração à árvore
 NoAST *adicionarDeclaracao(NoAST *raiz, NoAST *declaracao);
+// Cria um nó condicional
+NoAST *criarNoIf(NoAST *cond, NoAST *then_branch, NoAST *else_branch);
+// Cria um nó de loop "while"
+NoAST *criarNoWhile(NoAST *cond, NoAST *body);
+// Cria um nó de loop "for"
+NoAST *criarNoFor(NoAST *init, NoAST *cond, NoAST *update, NoAST *body);
+// Cria um nó "block"
+NoAST *criarNoBlock(NoAST *firstStatement);
+// Cria um nó "break"
+NoAST *criarNoBreak();
+// Cria um nó "continue"
+NoAST *criarNoContinue();
+// Cria um nó "switch"
+NoAST *criarNoSwitch(NoAST *expr, NoAST *cases);
+// Cria um nó "case"
+NoAST *criarNoCase(NoAST *caseExpr, NoAST *caseBody);
 
 // Imprime a AST
 void imprimirAST(NoAST *raiz);

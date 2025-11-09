@@ -2,6 +2,8 @@
 #define CODEGEN_H
 
 #include <stdio.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include "ast.h"
 
 // Gera código C recursivamente para a AST

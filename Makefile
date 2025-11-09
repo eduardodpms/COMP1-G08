@@ -1,67 +1,80 @@
-# Detecta o sistema operacional
-# ("Linux"=Linux, "Darwin"=Mac, "Windows_NT"=Windows)
+# Makefile para a estrutura:
+#  lexer/lexer.l
+#  parser/*.c, parser/*.h, parser/parser.y
+#  src/  <- saída do bison/flex (parser.tab.c, parser.tab.h, lex.yy.c)
+#  bin/parser <- executável final
+
 UNAME_S := $(shell uname -s)
 
-# Nome do executável final
-EXEC = bin/parser
+# compilador padrão (override via: make CC=clang)
+CC       := gcc
+INCDIRS  := -I./parser -I./src
+CFLAGS   := -g -Wall -Wextra $(INCDIRS) -fno-common
 
-# Diretórios a serem gerados
-SRC_DIR = src
-BIN_DIR = bin
+# Diretório opcional onde uma libfl pode existir (ex: Homebrew)
+# Use: make FLEX_LIBDIR=/opt/homebrew/opt/flex/lib
+FLEX_LIBDIR ?=
 
-# Arquivos-fonte do Bison e do Flex
-BISON_FILE = parser/parser.y
-FLEX_FILE  = lexer/lexer.l
-
-# Arquivos que o Bison vai gerar
-BISON_C   = src/parser.tab.c
-BISON_H   = src/parser.tab.h
-
-# Arquivo gerado pelo Flex
-FLEX_C    = src/lex.yy.c
-
-# Arquivo de saída do compilador
-OUTPUT_C = output.c
-
-# Parâmetros opcionais ao Bison e Flex
-BISON_FLAGS = -d -o # -d gera o arquivo .h (token definitions), -o define o diretório de saída
-FLEX_FLAGS  = -o # -o define o diretório de saída
-
-# Parâmetros de compilação
-CC      = gcc
-CFLAGS  = -o # -o define o diretório de saída
-
-ifeq ($(OS),Linux) # biblioteca do Flex (Linux)
-	LDFLAGS = -lfl
+# LDLIBS: só linkamos -lfl em Linux por padrão.
+LDLIBS :=
+ifeq ($(UNAME_S),Linux)
+	LDLIBS += -lfl
 endif
 
-ifeq ($(OS),Windows_NT) # biblioteca do Flex (Windows)
-	LDFLAGS = -lfl
+# Se usuário forneceu FLEX_LIBDIR e existe libfl lá, force link via -L
+ifeq ($(wildcard $(FLEX_LIBDIR)/libfl.*),$(FLEX_LIBDIR)/libfl.*)
+	LDLIBS += -L$(FLEX_LIBDIR) -lfl
 endif
 
-ifeq ($(OS),Darwin)	# biblioteca do Flex (Mac)
-    LDFLAGS = -ll
-endif
+LEXER    := lexer/lexer.l
+BISON    := parser/parser.y
+BISON_C  := src/parser.tab.c
+BISON_H  := src/parser.tab.h
+FLEX_C   := src/lex.yy.c
 
-# Regra padrão (alvo 'all' vai gerar o executável)
+# fontes "manuais" na pasta parser/
+PARSER_SRCS := $(wildcard parser/*.c)
+# fontes gerados e outros fontes em src/
+SRC_SRCS := $(wildcard src/*.c)
+
+# objetos (um .o para cada .c)
+OBJS := $(patsubst %.c,%.o,$(PARSER_SRCS) $(SRC_SRCS))
+
+BIN_DIR := bin
+EXEC := $(BIN_DIR)/parser
+
+.PHONY: all clean dir debug rebuild
+
 all: $(EXEC)
 
-# Regra para gerar o executável: depende dos arquivos gerados por Bison e Flex
-$(EXEC): clean dir $(FLEX_C) $(BISON_C)
-	$(CC) $(CFLAGS) $@  $(BISON_C) $(FLEX_C) $(LDFLAGS)
+# linka todos os objetos para o executável
+$(EXEC): dir $(BISON_C) $(FLEX_C) $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
-# Regra para rodar o Flex: gera lex.yy.c
-$(FLEX_C): $(FLEX_FILE)
-	flex $(FLEX_FLAGS) $(FLEX_C)  $(FLEX_FILE)
+# regra genérica .c -> .o (coloca dependência no header gerado do bison)
+%.o: %.c $(BISON_H)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Regra para rodar o Bison: gera parser.tab.c e parser.tab.h
-$(BISON_C) $(BISON_H): $(BISON_FILE)
-	bison $(BISON_FLAGS) $(BISON_C)  $(BISON_FILE)
+# gerar lex.yy.c via flex (coloca em src/)
+$(FLEX_C): $(LEXER)
+	mkdir -p src
+	flex -o $(FLEX_C) $(LEXER)
 
-# Cria as pastas src/ e bin/ se não existirem
+# gerar parser.tab.c/h via bison (coloca em src/)
+$(BISON_C) $(BISON_H): $(BISON)
+	mkdir -p src
+	bison -d -o $(BISON_C) $(BISON)
+
 dir:
-	mkdir -p $(SRC_DIR) $(BIN_DIR)
+	mkdir -p $(BIN_DIR) src
 
-# Regra de limpeza: remove arquivos gerados
+# build com debug (mantém -g)
+debug: CFLAGS := -g -Wall -Wextra $(INCDIRS) -fno-common
+debug: clean all
+
+rebuild: clean all
+
 clean:
-	rm -f $(EXEC) $(OUTPUT_C) $(BISON_C) $(BISON_H) $(FLEX_C)
+	rm -rf $(BIN_DIR)/*
+	rm -f src/*.o parser/*.o parser/*.o src/parser.tab.c src/parser.tab.h src/lex.yy.c
+	@echo "[clean] removidos binarios e gerados"

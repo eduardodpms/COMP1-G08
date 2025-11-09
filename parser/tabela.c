@@ -3,30 +3,71 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern int yylineno;
+extern void report_error(int, const char *, ...);
+
+typedef struct ScopeFrame {
+    Simbolo *head;
+    struct ScopeFrame *next;
+} ScopeFrame;
+
 Simbolo *tabela = NULL;
+
+static ScopeFrame *scope_stack = NULL;
+
+void pushScope() {
+    ScopeFrame *f = malloc(sizeof(ScopeFrame));
+    if (!f) { perror("malloc"); exit(1); }
+    f->head = NULL;
+    f->next = scope_stack;
+    scope_stack = f;
+}
+
+void popScope() {
+    if (!scope_stack) return;
+    Simbolo *s = scope_stack->head;
+    while (s) {
+        Simbolo *n = s->proximo;
+        free(s);
+        s = n;
+    }
+    ScopeFrame *old = scope_stack;
+    scope_stack = old->next;
+    free(old);
+}
 
 void inserirSimbolo(const char *nome, TipoDado tipo)
 {
-    Simbolo *s = malloc(sizeof(Simbolo));
-    strncpy(s->nome, nome, sizeof(s->nome));
-    s->nome[sizeof(s->nome) - 1] = '\0';
-    s->tipo = tipo;
+    if (!scope_stack) pushScope(); /* ensure there is at least a global scope */
+    /* check if symbol already exists in current scope (shadowing detection) */
+    for (Simbolo *it = scope_stack->head; it; it = it->proximo) {
+        if (strcmp(it->nome, nome) == 0) {
+            int line = (yylineno > 0) ? yylineno : 1;
+            report_error(line, "Redeclaração da variável '%s' no mesmo escopo.", nome);
+            return;
+        }
+    }
 
-    // Inicializa valor constante como desconhecido
+    Simbolo *s = malloc(sizeof(Simbolo));
+    if (!s) { perror("malloc"); exit(1); }
+    strncpy(s->nome, nome, sizeof(s->nome) - 1);
+    s->nome[sizeof(s->nome)-1] = '\0';
+    s->tipo = tipo;
     s->valor_num = 0;
     s->is_constante = 0;
-
-    s->proximo = tabela;
-    tabela = s;
+    s->proximo = scope_stack->head;
+    scope_stack->head = s;
 }
+
 
 // Buscar símbolo
 Simbolo *buscarSimbolo(const char *nome)
 {
-    for (Simbolo *s = tabela; s; s = s->proximo)
-    {
-        if (strcmp(s->nome, nome) == 0)
-            return s;
+    for (ScopeFrame *f = scope_stack; f; f = f->next) {
+        for (Simbolo *s = f->head; s; s = s->proximo) {
+            if (strcmp(s->nome, nome) == 0)
+                return s;
+        }
     }
     return NULL;
 }
@@ -34,32 +75,37 @@ Simbolo *buscarSimbolo(const char *nome)
 void imprimirTabela()
 {
     printf("\nTabela de Símbolos:\n");
-    for (Simbolo *s = tabela; s; s = s->proximo)
-    {
-        const char *tipo_str = "";
-        switch (s->tipo)
-        {
-        case TIPO_NUMBER:
-            tipo_str = "number";
-            break;
-        case TIPO_STRING:
-            tipo_str = "string";
-            break;
-        case TIPO_BOOLEAN:
-            tipo_str = "boolean";
-            break;
+    int level = 0;
+    for (ScopeFrame *f = scope_stack; f; f = f->next) {
+        printf(" Scope level %d:\n", level++);
+        for (Simbolo *s = f->head; s; s = s->proximo) {
+            const char *tipo_str = "";
+            switch (s->tipo)
+            {
+            case TIPO_NUMBER:
+                tipo_str = "number";
+                break;
+            case TIPO_STRING:
+                tipo_str = "string";
+                break;
+            case TIPO_BOOLEAN:
+                tipo_str = "boolean";
+                break;
+            }
+            printf("  Nome: %s, Tipo: %s", s->nome, tipo_str);
+            if (s->tipo == TIPO_NUMBER && s->is_constante) {
+                printf(", Valor Constante: %d", s->valor_num);
+            }
+            printf("\n");
         }
-
-        printf("Nome: %s, Tipo: %s", s->nome, tipo_str);
-
-        if (s->tipo == TIPO_NUMBER && s->is_constante)
-        {
-            printf(", Valor Constante: %d", s->valor_num);
-        }
-
-        printf("\n");
     }
 }
+
+void liberarTabelaSimbolos()
+{
+    while (scope_stack) popScope();
+}
+
 
 TipoDado obterTipo(const char *nome)
 {

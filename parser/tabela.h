@@ -12,7 +12,8 @@ typedef struct Simbolo
     struct Simbolo *proximo;
 } Simbolo;
 
-extern Simbolo *tabela;
+void pushScope();
+void popScope();
 
 void inserirSimbolo(const char *nome, TipoDado tipo);
 Simbolo *buscarSimbolo(const char *nome);

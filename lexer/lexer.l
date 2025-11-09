@@ -1,8 +1,9 @@
 %{
+#include "parser.tab.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "parser.tab.h"   
+#include <stddef.h>  
 
 extern int yylineno;   /* mantido pelo flex quando usamos %option yylineno */
 extern int compilation_error_count;  /* contador global definido no parser.y */
@@ -55,6 +56,12 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "*"           { return MULT; }
 "/"           { return DIV; }
 "="           { return ASSIGN; }
+"=="          { return EQ; }
+"!="          { return NEQ; }
+"<="          { return LE; }
+">="          { return GE; }
+"<"           { return LT; }
+">"           { return GT; }
 
 ";"           { return SEMICOLON; }
 ":"           { return COLON; }
@@ -70,7 +77,8 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 [0-9]+                 { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
 \"[^\"]*\" {
     size_t len = strlen(yytext);
-    char *str = malloc(len - 1);  // len-2 caracteres + \0
+    if (len < 2) { yylval.sval = strdup(""); return STRING_LITERAL; }
+    char *str = malloc((len - 2) + 1);  /* +1 for '\0' */
     if (!str) { fprintf(stderr, "Erro de memória!\n"); exit(1); }
     strncpy(str, yytext + 1, len - 2);
     str[len - 2] = '\0';

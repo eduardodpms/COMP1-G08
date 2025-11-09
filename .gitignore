@@ -11,10 +11,16 @@ __pycache__/
 .vscode/
 
 # Arquivos locais
+parser/ast.o
+parser/codegen.o
+parser/tabela.o
 src/parser.tab.c
 src/parser.tab.h
 src/lex.yy.c
+src/parser.tab.o
+src/lex.yy.o
 output.c
+saida.c
 
 # Binários
 bin/parser
