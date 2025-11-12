@@ -1,6 +1,14 @@
 #ifndef AST_H
 #define AST_H
 
+/* OPERADORES DE COMPARAÇÃO */
+#define OP_EQ 256
+#define OP_NEQ 257
+#define OP_LT 258
+#define OP_GT 259
+#define OP_LE 260
+#define OP_GE 261
+
 typedef enum
 {
     VK_LET,
@@ -72,7 +80,7 @@ NoAST *criarNoBool(int valor);
 // Cria um nó de identificador
 NoAST *criarNoId(const char *nome);
 // Cria um nó de operação
-NoAST *criarNoOp(char operador, NoAST *esquerda, NoAST *direita);
+NoAST *criarNoOp(int operador, NoAST *esquerda, NoAST *direita);
 // Cria um nó de declaração
 NoAST *criarNoDecl(VarKind var_kind, TipoDado tipo_dado, const char *nome, NoAST *valor);
 // Adiciona uma declaração à árvore

@@ -82,6 +82,8 @@ extern int yylineno;
 %token EQ NEQ LT GT LE GE
 
 // precedência e associatividade dos operadores
+%nonassoc EQ NEQ
+%nonassoc LT GT LE GE
 %left PLUS MINUS
 %left MULT DIV
 
@@ -195,12 +197,24 @@ expr:
     | expr DIV expr {
         $$ = criarNoOp('/', $1, $3);
     }
-    | expr EQ expr   { $$ = NULL; }
-    | expr NEQ expr  { $$ = NULL; }
-    | expr LT expr   { $$ = NULL; }
-    | expr GT expr   { $$ = NULL; }
-    | expr LE expr   { $$ = NULL; }
-    | expr GE expr   { $$ = NULL; }
+    | expr EQ expr   { 
+    $$ = criarNoOp(OP_EQ, $1, $3);
+    }
+    | expr NEQ expr  { 
+    $$ = criarNoOp(OP_NEQ, $1, $3);
+    }
+    | expr LT expr   { 
+    $$ = criarNoOp(OP_LT, $1, $3);
+    }
+    | expr GT expr   { 
+    $$ = criarNoOp(OP_GT, $1, $3);
+    }
+    | expr LE expr   { 
+    $$ = criarNoOp(OP_LE, $1, $3);
+    }
+    | expr GE expr   { 
+    $$ = criarNoOp(OP_GE, $1, $3);
+    }
     | NUMBER_LITERAL {
         $$ = criarNoNum($1);
     } 

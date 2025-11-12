@@ -103,7 +103,7 @@ NoAST *criarNoId(const char *nome)
 }
 
 // Função para criar um nó de declaração
-NoAST *criarNoOp(char operador, NoAST *esquerda, NoAST *direita)
+NoAST *criarNoOp(int operador, NoAST *esquerda, NoAST *direita)
 {
     NoAST *novo = malloc(sizeof(NoAST));
     if (!novo) { perror("malloc"); exit(1); }

@@ -15,8 +15,18 @@ TipoDado obterTipoExpressao(NoAST *expr) {
         case NO_BOOL:
             return TIPO_BOOLEAN;
         case NO_ID:
-            // Para identificar o tipo de variáveis, precisamos da tabela de símbolos
             return obterTipo(expr->nome);
+        case NO_OP:
+            // Operações de comparação retornam boolean
+            if (expr->valor == OP_EQ || expr->valor == OP_NEQ ||
+                expr->valor == OP_LT || expr->valor == OP_GT ||
+                expr->valor == OP_LE || expr->valor == OP_GE) {
+                return TIPO_BOOLEAN;
+            } else {
+                // Operações aritméticas retornam number
+                return TIPO_NUMBER;
+            }
+            break;
         default:
             return TIPO_NUMBER; // padrão para outros casos
     }
@@ -58,7 +68,23 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
     case NO_OP:
         fprintf(out, "(");
         gerarCodigoC_rec(raiz->esquerda, out);
-        fprintf(out, " %c ", (char)raiz->valor);
+ switch(raiz->valor) {
+        /* OPERADORES ARITMÉTICOS (JÁ EXISTENTES) */
+        case '+': fprintf(out, " + "); break;
+        case '-': fprintf(out, " - "); break;
+        case '*': fprintf(out, " * "); break;
+        case '/': fprintf(out, " / "); break;
+        
+        /* OPERADORES DE COMPARAÇÃO (NOVOS) */
+        case OP_EQ: fprintf(out, " == "); break;
+        case OP_NEQ: fprintf(out, " != "); break;
+        case OP_LT: fprintf(out, " < "); break;
+        case OP_GT: fprintf(out, " > "); break;
+        case OP_LE: fprintf(out, " <= "); break;
+        case OP_GE: fprintf(out, " >= "); break;
+        
+        default: fprintf(out, " ? "); break;
+    }
         gerarCodigoC_rec(raiz->direita, out);
         fprintf(out, ")");
         break;
@@ -133,50 +159,59 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         fprintf(out, "}\n");
         break;
 
-           case NO_CONSOLE_LOG:
-        fprintf(out, "    printf(");
-        if (raiz->esquerda) {
-            // Se for um identificador, consultar a tabela de símbolos
-            if (raiz->esquerda->tipo == NO_ID) {
-                TipoDado tipo_variavel = obterTipo(raiz->esquerda->nome);
-                switch (tipo_variavel) {
-                    case TIPO_STRING:
-                        fprintf(out, "\"%%s\\n\", ");
-                        gerarCodigoC_rec(raiz->esquerda, out);
-                        break;
-                    case TIPO_BOOLEAN:
-                        fprintf(out, "\"%%s\\n\", ");
-                        gerarCodigoC_rec(raiz->esquerda, out);
-                        fprintf(out, " ? \"true\" : \"false\"");
-                        break;
-                    default: // TIPO_NUMBER
-                        fprintf(out, "\"%%d\\n\", ");
-                        gerarCodigoC_rec(raiz->esquerda, out);
-                        break;
-                }
-            }
-            // Para outros tipos (literais)
-            else {
-                switch (raiz->esquerda->tipo) {
-                    case NO_STR:
-                        fprintf(out, "\"%%s\\n\", ");
-                        gerarCodigoC_rec(raiz->esquerda, out);
-                        break;
-                    case NO_BOOL:
-                        fprintf(out, "\"%%s\\n\", ");
-                        gerarCodigoC_rec(raiz->esquerda, out);
-                        fprintf(out, " ? \"true\" : \"false\"");
-                        break;
-                    default: // NO_NUM, NO_OP, etc.
-                        fprintf(out, "\"%%d\\n\", ");
-                        gerarCodigoC_rec(raiz->esquerda, out);
-                        break;
-                }
+    case NO_CONSOLE_LOG:
+    fprintf(out, "    printf(");
+     if (raiz->esquerda) {
+        // Se for um identificador, consultar a tabela de símbolos
+        if (raiz->esquerda->tipo == NO_ID) {
+            TipoDado tipo_variavel = obterTipo(raiz->esquerda->nome);
+            switch (tipo_variavel) {
+                case TIPO_STRING:
+                    fprintf(out, "\"%%s\\n\", ");
+                    gerarCodigoC_rec(raiz->esquerda, out);
+                    break;
+                case TIPO_BOOLEAN:
+                    fprintf(out, "\"%%s\\n\", ");
+                    gerarCodigoC_rec(raiz->esquerda, out);
+                    fprintf(out, " ? \"true\" : \"false\"");
+                    break;
+                default: // TIPO_NUMBER
+                    fprintf(out, "\"%%d\\n\", ");
+                    gerarCodigoC_rec(raiz->esquerda, out);
+                    break;
             }
         }
-        fprintf(out, ");\n");
-        break;
-        
+        // Para outros tipos (literais) - ADICIONAR TRATAMENTO PARA COMPARAÇÕES
+        else if (raiz->esquerda->tipo == NO_OP && 
+                (raiz->esquerda->valor == OP_EQ || raiz->esquerda->valor == OP_NEQ ||
+                 raiz->esquerda->valor == OP_LT || raiz->esquerda->valor == OP_GT ||
+                 raiz->esquerda->valor == OP_LE || raiz->esquerda->valor == OP_GE)) {
+            // É uma operação de comparação - tratar como boolean
+            fprintf(out, "\"%%s\\n\", ");
+            gerarCodigoC_rec(raiz->esquerda, out);
+            fprintf(out, " ? \"true\" : \"false\"");
+        }
+        else {
+            switch (raiz->esquerda->tipo) {
+                case NO_STR:
+                    fprintf(out, "\"%%s\\n\", ");
+                    gerarCodigoC_rec(raiz->esquerda, out);
+                    break;
+                case NO_BOOL:
+                    fprintf(out, "\"%%s\\n\", ");
+                    gerarCodigoC_rec(raiz->esquerda, out);
+                    fprintf(out, " ? \"true\" : \"false\"");
+                    break;
+                default: // NO_NUM, NO_OP, etc.
+                    fprintf(out, "\"%%d\\n\", ");
+                    gerarCodigoC_rec(raiz->esquerda, out);
+                    break;
+            }
+        }
+    }
+    fprintf(out, ");\n");
+    break;
+
     default:
         break;
     }
