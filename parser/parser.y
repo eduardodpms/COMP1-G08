@@ -113,13 +113,6 @@ program:
     }
 ;
 
-statement:
-    declaration {
-        $$ = $1;
-    }
-    | error SEMICOLON { yyerrok; yyclearin; $$ = NULL; }
-    ;
-
 /* declaracoes */
 declaration:
     /* number */
@@ -279,7 +272,7 @@ block:
 /* console.log(expression);  -> por enquanto gera nó nulo (aceita sintaxe) */
 console_stmt:
       CONSOLE_LOG LPAREN expr RPAREN SEMICOLON {
-          $$ = NULL; /* substituir por criarNoConsoleLog($3) quando existir */
+          $$ = criarNoConsoleLog($3); /* substituir por criarNoConsoleLog($3) quando existir */
       }
     ;
 
@@ -370,7 +363,7 @@ int main(int argc, char **argv) {
     }
 
     pushScope();
-    int parse_ret = yyparse();
+    yyparse();
 
     verificarTipo(ast_root);
     

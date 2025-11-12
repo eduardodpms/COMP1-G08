@@ -4,6 +4,24 @@
 #include "ast.h"
 #include "tabela.h"
 
+TipoDado obterTipoExpressao(NoAST *expr) {
+    if (!expr) return -1;
+    
+    switch (expr->tipo) {
+        case NO_NUM:
+            return TIPO_NUMBER;
+        case NO_STR:
+            return TIPO_STRING;
+        case NO_BOOL:
+            return TIPO_BOOLEAN;
+        case NO_ID:
+            // Para identificar o tipo de variáveis, precisamos da tabela de símbolos
+            return obterTipo(expr->nome);
+        default:
+            return TIPO_NUMBER; // padrão para outros casos
+    }
+}
+
 void gerarCodigoC_rec(NoAST *raiz, FILE *out)
 {
     if (!raiz)
@@ -115,11 +133,55 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         fprintf(out, "}\n");
         break;
 
-
+           case NO_CONSOLE_LOG:
+        fprintf(out, "    printf(");
+        if (raiz->esquerda) {
+            // Se for um identificador, consultar a tabela de símbolos
+            if (raiz->esquerda->tipo == NO_ID) {
+                TipoDado tipo_variavel = obterTipo(raiz->esquerda->nome);
+                switch (tipo_variavel) {
+                    case TIPO_STRING:
+                        fprintf(out, "\"%%s\\n\", ");
+                        gerarCodigoC_rec(raiz->esquerda, out);
+                        break;
+                    case TIPO_BOOLEAN:
+                        fprintf(out, "\"%%s\\n\", ");
+                        gerarCodigoC_rec(raiz->esquerda, out);
+                        fprintf(out, " ? \"true\" : \"false\"");
+                        break;
+                    default: // TIPO_NUMBER
+                        fprintf(out, "\"%%d\\n\", ");
+                        gerarCodigoC_rec(raiz->esquerda, out);
+                        break;
+                }
+            }
+            // Para outros tipos (literais)
+            else {
+                switch (raiz->esquerda->tipo) {
+                    case NO_STR:
+                        fprintf(out, "\"%%s\\n\", ");
+                        gerarCodigoC_rec(raiz->esquerda, out);
+                        break;
+                    case NO_BOOL:
+                        fprintf(out, "\"%%s\\n\", ");
+                        gerarCodigoC_rec(raiz->esquerda, out);
+                        fprintf(out, " ? \"true\" : \"false\"");
+                        break;
+                    default: // NO_NUM, NO_OP, etc.
+                        fprintf(out, "\"%%d\\n\", ");
+                        gerarCodigoC_rec(raiz->esquerda, out);
+                        break;
+                }
+            }
+        }
+        fprintf(out, ");\n");
+        break;
+        
     default:
         break;
     }
 }
+
 
 void gerarCodigoC(NoAST *ast_root, const char *nomeArquivo)
 {

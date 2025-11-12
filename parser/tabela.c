@@ -112,7 +112,7 @@ TipoDado obterTipo(const char *nome)
     Simbolo *s = buscarSimbolo(nome);
     if (s)
         return s->tipo;
-    return -1; // não encontrado
+    return TIPO_NUMBER; // não encontrado
 }
 
 int obterValor(const char *nome, int *ok)

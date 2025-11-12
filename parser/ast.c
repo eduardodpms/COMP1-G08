@@ -250,6 +250,18 @@ NoAST *criarNoSwitch(NoAST *expr, NoAST *cases)
     return novo;
 }
 
+NoAST *criarNoConsoleLog(NoAST *expr) {
+    NoAST *novo = malloc(sizeof(NoAST));
+    if (!novo) { perror("malloc"); exit(1); }
+    novo->tipo = NO_CONSOLE_LOG;
+    novo->esquerda = expr;
+    novo->direita = NULL;
+    novo->prox = NULL;
+    novo->body = NULL;
+    novo->linha = yylineno;
+    return novo;
+}
+
 TipoDado inferirTipo(NoAST *expr)
 {
     if (!expr)
@@ -556,6 +568,15 @@ void imprimirAST_rec(NoAST *raiz, int nivel)
         }
         break;
 
+
+    case NO_CONSOLE_LOG:
+        printf("CONSOLE_LOG:\n");
+        if (raiz->esquerda) {
+            imprimirIndentacao(nivel + 1);
+            printf("Expression:\n");
+            imprimirAST_rec(raiz->esquerda, nivel + 2);
+        }
+        break;
 
     default:
         printf("(NO DESCONHECIDO)\n");

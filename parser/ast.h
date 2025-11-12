@@ -24,7 +24,8 @@ typedef enum
     NO_BREAK,
     NO_CONTINUE,
     NO_SWITCH,
-    NO_CASE
+    NO_CASE,
+    NO_CONSOLE_LOG
 } NoTipo;
 
 typedef enum
@@ -92,6 +93,10 @@ NoAST *criarNoContinue();
 NoAST *criarNoSwitch(NoAST *expr, NoAST *cases);
 // Cria um nó "case"
 NoAST *criarNoCase(NoAST *caseExpr, NoAST *caseBody);
+//Cria um nó "ConsoleLog"
+NoAST *criarNoConsoleLog(NoAST *expr);
+
+
 
 // Imprime a AST
 void imprimirAST(NoAST *raiz);
