@@ -378,7 +378,7 @@ int main(int argc, char **argv) {
     pushScope();
     yyparse();
 
-    verificarTipo(ast_root);
+    verificarTiposAST(ast_root);
     
     if (compilation_error_count > 0) {
         fprintf(stderr, "Encontrados %d erro(s). Abortando.\n", compilation_error_count);
