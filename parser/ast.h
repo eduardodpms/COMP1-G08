@@ -67,7 +67,7 @@ struct NoAST
     NoAST *direita;
     NoAST *prox;
     NoAST *body;
-
+    NoAST *else_branch; 
     int linha;
 };
 

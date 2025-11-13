@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include "ast.h"
 #include "tabela.h"
 
@@ -88,32 +89,42 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         gerarCodigoC_rec(raiz->direita, out);
         fprintf(out, ")");
         break;
+    
     case NO_BLOCK:
+    // Se há apenas uma declaração, não precisa de chaves
+    if (raiz->body && !raiz->body->prox) {
+        // Apenas uma instrução - gera sem chaves
+        gerarCodigoC_rec(raiz->body, out);
+    } else {
+        // Múltiplas instruções - precisa de bloco
         fprintf(out, "{\n");
         for (NoAST *s = raiz->body; s != NULL; s = s->prox) {
             gerarCodigoC_rec(s, out);
         }
         fprintf(out, "}\n");
-        break;
+    }
+    break;
 
     case NO_IF:
-        fprintf(out, "if (");
-        gerarCodigoC_rec(raiz->esquerda, out);
-        fprintf(out, ") ");
-        gerarCodigoC_rec(raiz->direita, out);
-        if (raiz->prox) {
-            fprintf(out, " else ");
-            gerarCodigoC_rec(raiz->prox, out);
-        }
-        fprintf(out, "\n");
-        break;
+    fprintf(out, "if (");
+    gerarCodigoC_rec(raiz->esquerda, out);
+    fprintf(out, ") {\n");
+    gerarCodigoC_rec(raiz->direita, out);
+    fprintf(out, "}");
+    if (raiz->else_branch) {
+        fprintf(out, " else {\n");
+        gerarCodigoC_rec(raiz->else_branch, out);
+        fprintf(out, "}");
+    }
+    fprintf(out, "\n");
+    break;
 
     case NO_WHILE:
         fprintf(out, "while (");
         gerarCodigoC_rec(raiz->esquerda, out);
         fprintf(out, ") ");
         if (raiz->body) gerarCodigoC_rec(raiz->body, out);
-        fprintf(out, "\n");
+            fprintf(out, "\n");
         break;
 
     case NO_FOR:

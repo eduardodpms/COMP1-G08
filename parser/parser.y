@@ -82,6 +82,8 @@ extern int yylineno;
 %token EQ NEQ LT GT LE GE
 
 // precedência e associatividade dos operadores
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 %nonassoc EQ NEQ
 %nonassoc LT GT LE GE
 %left PLUS MINUS
@@ -307,7 +309,7 @@ if_stmt:
     IF LPAREN expr RPAREN statement {
         $$ = criarNoIf($3, $5, NULL);
     }
-  | IF LPAREN expr RPAREN statement ELSE statement {
+    | IF LPAREN expr RPAREN statement ELSE statement {
         $$ = criarNoIf($3, $5, $7);
     }
 ;
@@ -325,7 +327,7 @@ while_stmt:
 declaration_or_expr:
     declaration { $$ = $1; }
   | expr { $$ = $1; }
-  | /* empty */ { $$ = NULL; }
+  | { $$ = NULL; }
 ;
 
 for_stmt:
@@ -334,10 +336,7 @@ for_stmt:
     }
 ;
 
-/* switch/case
-   switch (expr) { case const: stmt* [break;] ... default: stmt* }
-   For the PoC we parse cases into NO_CASE nodes chained by prox;
-*/
+/* switch/case*/
 switch_stmt:
     SWITCH LPAREN expr RPAREN LBRACE case_list RBRACE {
         $$ = criarNoSwitch($3, $6);
@@ -360,7 +359,7 @@ case_item:
         $$ = criarNoCase(case_expr, case_body);
     }
   | DEFAULT COLON stmt_list {
-        $$ = criarNoCase(NULL, $3); /* default case -> caseExpr NULL */
+        $$ = criarNoCase(NULL, $3); 
     }
 ;
 %%

@@ -165,17 +165,14 @@ NoAST *criarNoBlock(NoAST *firstStatement)
     return novo;
 }
 
-NoAST *criarNoIf(NoAST *cond, NoAST *then_branch, NoAST *else_branch)
-{
-    NoAST *novo = malloc(sizeof(NoAST));
-    if (!novo) { perror("malloc"); exit(1); }
-    novo->tipo = NO_IF;
-    novo->esquerda = cond;
-    novo->direita = then_branch;
-    novo->prox = else_branch; // usamos prox para else-branch
-    novo->body = NULL;
-    novo->linha = yylineno;
-    return novo;
+NoAST *criarNoIf(NoAST *cond, NoAST *then_branch, NoAST *else_branch) {
+    NoAST *node = (NoAST*)malloc(sizeof(NoAST));
+    node->tipo = NO_IF;
+    node->esquerda = cond;
+    node->direita = then_branch;
+    node->else_branch = else_branch;  
+    node->prox = NULL;  
+    return node;
 }
 
 NoAST *criarNoWhile(NoAST *cond, NoAST *body)
@@ -260,6 +257,30 @@ NoAST *criarNoConsoleLog(NoAST *expr) {
     novo->body = NULL;
     novo->linha = yylineno;
     return novo;
+}
+
+NoAST *removerBlocosExtras(NoAST *raiz) {
+    if (!raiz) return NULL;
+    
+    NoAST *atual = raiz;
+    NoAST *anterior = NULL;
+    
+    while (atual) {
+        if (atual->tipo == NO_IF && atual->prox && atual->prox->tipo == NO_BLOCK) {
+            NoAST *proximo = atual->prox;
+            
+            if (atual->prox && atual->prox->tipo == NO_BLOCK) {
+                atual->prox = proximo->prox;
+                
+                continue;
+            }
+        }
+        
+        anterior = atual;
+        atual = atual->prox;
+    }
+    
+    return raiz;
 }
 
 TipoDado inferirTipo(NoAST *expr)
@@ -489,19 +510,15 @@ void imprimirAST_rec(NoAST *raiz, int nivel)
 
     case NO_IF:
         printf("IF (line %d):\n", raiz->linha);
-        if (raiz->esquerda) {
-            imprimirIndentacao(nivel + 1); printf("Cond:\n");
-            imprimirAST_rec(raiz->esquerda, nivel + 2);
-        }
-        if (raiz->direita) {
-            imprimirIndentacao(nivel + 1); printf("Then:\n");
-            imprimirAST_rec(raiz->direita, nivel + 2);
-        }
-        if (raiz->prox) {
-            imprimirIndentacao(nivel + 1); printf("Else:\n");
-            imprimirAST_rec(raiz->prox, nivel + 2);
-        }
-        break;
+        printf("  Cond:\n    ");
+        imprimirAST(raiz->esquerda);
+        printf("  Then:\n    ");
+        imprimirAST(raiz->direita);
+        if (raiz->else_branch) {
+            printf("  Else:\n    ");
+            imprimirAST(raiz->else_branch);
+    }
+    break;
 
     case NO_WHILE:
         printf("WHILE (line %d):\n", raiz->linha);
@@ -596,15 +613,38 @@ void ast_free(NoAST *node)
 {
     if (!node) return;
 
-    ast_free(node->esquerda);
-    ast_free(node->direita);
-
-    if (node->tipo == NO_DECL && node->decl.expr) {
-        ast_free(node->decl.expr);
-        node->decl.expr = NULL;
+    // Liberar filhos específicos do nó
+    switch (node->tipo) {
+        case NO_IF:
+            ast_free(node->esquerda);      // condição
+            ast_free(node->direita);       // then branch
+            ast_free(node->else_branch);   // else branch (NOVO)
+            break;
+        case NO_OP:
+            ast_free(node->esquerda);
+            ast_free(node->direita);
+            break;
+        case NO_DECL:
+            ast_free(node->decl.expr);     // expressão de inicialização
+            break;
+        case NO_BLOCK:
+        case NO_SWITCH:
+        case NO_WHILE:
+        case NO_FOR:
+            ast_free(node->body);          // corpo do bloco/loop
+            break;
+        case NO_CASE:
+            ast_free(node->esquerda);      // expressão do case
+            ast_free(node->body);          // corpo do case
+            break;
+        case NO_CONSOLE_LOG:
+            ast_free(node->esquerda);      // expressão do console.log
+            break;
+        default:
+            break;
     }
-
+    
+    // Liberar próximo nó na lista
     ast_free(node->prox);
-
     free(node);
 }
