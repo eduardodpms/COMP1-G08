@@ -81,13 +81,16 @@ extern int yylineno;
 /* comparadores */
 %token EQ NEQ LT GT LE GE
 
+%token MOD
+
 // precedência e associatividade dos operadores
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 %nonassoc EQ NEQ
 %nonassoc LT GT LE GE
 %left PLUS MINUS
-%left MULT DIV
+%left MULT DIV MOD MOD 
+%right ASSIGN
 
 /* símbolos */
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
@@ -106,7 +109,6 @@ extern int yylineno;
 %type <ast_node> declaration_or_expr
 %type <ast_node> switch_stmt case_list case_item
 %type <ast_node> console_stmt
-
 %%
 
 program:
@@ -199,6 +201,9 @@ expr:
     | expr DIV expr {
         $$ = criarNoOp('/', $1, $3);
     }
+    | expr MOD expr {
+        $$ = criarNoOp('%', $1, $3);
+    }
     | expr EQ expr   { 
     $$ = criarNoOp(OP_EQ, $1, $3);
     }
@@ -217,6 +222,10 @@ expr:
     | expr GE expr   { 
     $$ = criarNoOp(OP_GE, $1, $3);
     }
+    | IDENT ASSIGN expr %prec ASSIGN {
+        $$ = criarNoOp(OP_ASSIGN, criarNoId($1), $3);
+        free($1);
+   }
     | NUMBER_LITERAL {
         $$ = criarNoNum($1);
     } 
@@ -230,22 +239,20 @@ expr:
     | IDENT {
     char *ident_name = $1;
         int ok;
-        int valor = obterValor(ident_name, &ok); /* consultar tabela antes de decidir nó */
-
+        int valor = obterValor(ident_name, &ok); 
         if (ok) {
-            /* substituir por número constante */
             $$ = criarNoNum(valor);
         } else {
             $$ = criarNoId(ident_name);
         }
-
+        $$ = criarNoId(ident_name);
         free(ident_name);
     }
     | '(' expr ')' {
         $$ = $2;
     }
     ;
-
+    ;
 /* log_statement:
     CONSOLE_LOG LPAREN IDENT RPAREN SEMICOLON {
         fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
@@ -292,7 +299,6 @@ console_stmt:
       }
     ;
 
-/* extend statement to accept blocks, control flows and console.log */
 statement:
       declaration { $$ = $1; }
     | block       { $$ = $1; }
@@ -300,7 +306,8 @@ statement:
     | while_stmt  { $$ = $1; }
     | for_stmt    { $$ = $1; }
     | switch_stmt { $$ = $1; }
-    | console_stmt { $$ = $1; }   /* <-- adicionado: aceita console.log(...) */
+    | console_stmt { $$ = $1; } 
+    | expr SEMICOLON { $$ = $1; }
     | error SEMICOLON { yyerrok; yyclearin; $$ = NULL; }
     ;
 

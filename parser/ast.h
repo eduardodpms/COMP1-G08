@@ -8,6 +8,7 @@
 #define OP_GT 259
 #define OP_LE 260
 #define OP_GE 261
+#define OP_ASSIGN 262 
 
 typedef enum
 {

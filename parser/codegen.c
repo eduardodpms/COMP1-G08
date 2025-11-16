@@ -67,42 +67,49 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         fprintf(out, "%s", raiz->nome);
         break;
     case NO_OP:
+    if (raiz->valor == OP_ASSIGN) {
+        // ATRIBUIÇÃO: sem parênteses
+        gerarCodigoC_rec(raiz->esquerda, out);
+        fprintf(out, " = ");
+        gerarCodigoC_rec(raiz->direita, out);
+    } else {
+        // Outros operadores: com parênteses
         fprintf(out, "(");
         gerarCodigoC_rec(raiz->esquerda, out);
- switch(raiz->valor) {
-        /* OPERADORES ARITMÉTICOS (JÁ EXISTENTES) */
-        case '+': fprintf(out, " + "); break;
-        case '-': fprintf(out, " - "); break;
-        case '*': fprintf(out, " * "); break;
-        case '/': fprintf(out, " / "); break;
-        
-        /* OPERADORES DE COMPARAÇÃO (NOVOS) */
-        case OP_EQ: fprintf(out, " == "); break;
-        case OP_NEQ: fprintf(out, " != "); break;
-        case OP_LT: fprintf(out, " < "); break;
-        case OP_GT: fprintf(out, " > "); break;
-        case OP_LE: fprintf(out, " <= "); break;
-        case OP_GE: fprintf(out, " >= "); break;
-        
-        default: fprintf(out, " ? "); break;
-    }
+        switch(raiz->valor) {
+            case '+': fprintf(out, " + "); break;
+            case '-': fprintf(out, " - "); break;
+            case '*': fprintf(out, " * "); break;
+            case '/': fprintf(out, " / "); break;
+            case '%': fprintf(out, " %% "); break;
+            case OP_EQ: fprintf(out, " == "); break;
+            case OP_NEQ: fprintf(out, " != "); break;
+            case OP_LT: fprintf(out, " < "); break;
+            case OP_GT: fprintf(out, " > "); break;
+            case OP_LE: fprintf(out, " <= "); break;
+            case OP_GE: fprintf(out, " >= "); break;
+            default: fprintf(out, " ? "); break;
+        }
         gerarCodigoC_rec(raiz->direita, out);
         fprintf(out, ")");
-        break;
+    }
+    break;
     
     case NO_BLOCK:
-    // Se há apenas uma declaração, não precisa de chaves
-    if (raiz->body && !raiz->body->prox) {
-        // Apenas uma instrução - gera sem chaves
-        gerarCodigoC_rec(raiz->body, out);
-    } else {
-        // Múltiplas instruções - precisa de bloco
-        fprintf(out, "{\n");
-        for (NoAST *s = raiz->body; s != NULL; s = s->prox) {
-            gerarCodigoC_rec(s, out);
+    // Sempre use chaves para blocos, mas formate corretamente
+    fprintf(out, "{\n");
+    for (NoAST *s = raiz->body; s != NULL; s = s->prox) {
+        fprintf(out, "    "); // Indentação dentro do bloco
+        gerarCodigoC_rec(s, out);
+        
+        // Adicione ponto e vírgula para expression statements
+        if (s->tipo == NO_OP || s->tipo == NO_CONSOLE_LOG) {
+            fprintf(out, ";");
         }
-        fprintf(out, "}\n");
+        
+        fprintf(out, "\n");
     }
+    fprintf(out, "}");
     break;
 
     case NO_IF:
@@ -119,13 +126,13 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
     fprintf(out, "\n");
     break;
 
-    case NO_WHILE:
-        fprintf(out, "while (");
-        gerarCodigoC_rec(raiz->esquerda, out);
-        fprintf(out, ") ");
-        if (raiz->body) gerarCodigoC_rec(raiz->body, out);
-            fprintf(out, "\n");
-        break;
+   case NO_WHILE:
+    fprintf(out, "while (");
+    gerarCodigoC_rec(raiz->esquerda, out); // condição
+    fprintf(out, ") ");
+    gerarCodigoC_rec(raiz->body, out); // corpo do while
+    fprintf(out, "\n");
+    break;
 
     case NO_FOR:
         fprintf(out, "for (");
@@ -242,7 +249,14 @@ void gerarCodigoC(NoAST *ast_root, const char *nomeArquivo)
 
     for (NoAST *n = ast_root; n != NULL; n = n->prox)
     {
+        fprintf(out, "    "); 
         gerarCodigoC_rec(n, out);
+
+     if (n->tipo == NO_OP || n->tipo == NO_CONSOLE_LOG) {
+            fprintf(out, ";");
+        }
+
+        fprintf(out, "\n"); 
     }
 
     fprintf(out, "    return 0;\n}\n");

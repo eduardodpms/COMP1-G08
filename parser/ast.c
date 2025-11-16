@@ -175,17 +175,14 @@ NoAST *criarNoIf(NoAST *cond, NoAST *then_branch, NoAST *else_branch) {
     return node;
 }
 
-NoAST *criarNoWhile(NoAST *cond, NoAST *body)
-{
-    NoAST *novo = malloc(sizeof(NoAST));
-    if (!novo) { perror("malloc"); exit(1); }
-    novo->tipo = NO_WHILE;
-    novo->esquerda = cond;
-    novo->direita = NULL;
-    novo->prox = NULL;
-    novo->body = body;
-    novo->linha = yylineno;
-    return novo;
+NoAST *criarNoWhile(NoAST *cond, NoAST *body) {
+    NoAST *node = (NoAST*)malloc(sizeof(NoAST));
+    node->tipo = NO_WHILE;
+    node->esquerda = cond;    
+    node->body = body;       
+    node->prox = NULL;
+    node->linha = yylineno;
+    return node;
 }
 
 NoAST *criarNoFor(NoAST *init, NoAST *cond, NoAST *update, NoAST *body)
@@ -483,20 +480,29 @@ void imprimirAST_rec(NoAST *raiz, int nivel)
         printf("ID: %s\n", raiz->nome);
         break;
     case NO_OP:
-        printf("OP: %c\n", (char)raiz->valor);
-        if (raiz->esquerda)
-        {
-            imprimirIndentacao(nivel + 1);
-            printf("Esquerda:\n");
-            imprimirAST_rec(raiz->esquerda, nivel + 2);
-        }
-        if (raiz->direita)
-        {
-            imprimirIndentacao(nivel + 1);
-            printf("Direita:\n");
-            imprimirAST_rec(raiz->direita, nivel + 2);
-        }
-        break;
+    switch(raiz->valor) {
+        case OP_ASSIGN: printf("OP: =\n"); break;
+        case OP_EQ: printf("OP: ==\n"); break;
+        case OP_NEQ: printf("OP: !=\n"); break;
+        case OP_LT: printf("OP: <\n"); break;
+        case OP_GT: printf("OP: >\n"); break;
+        case OP_LE: printf("OP: <=\n"); break;
+        case OP_GE: printf("OP: >=\n"); break;
+        default: printf("OP: %c\n", (char)raiz->valor); break;
+    }
+    if (raiz->esquerda)
+    {
+        imprimirIndentacao(nivel + 1);
+        printf("Esquerda:\n");
+        imprimirAST_rec(raiz->esquerda, nivel + 2);
+    }
+    if (raiz->direita)
+    {
+        imprimirIndentacao(nivel + 1);
+        printf("Direita:\n");
+        imprimirAST_rec(raiz->direita, nivel + 2);
+    }
+    break;
 
     case NO_BLOCK:
         printf("BLOCK:\n");
@@ -630,6 +636,9 @@ void ast_free(NoAST *node)
         case NO_BLOCK:
         case NO_SWITCH:
         case NO_WHILE:
+            ast_free(node->esquerda);  
+            ast_free(node->body);      
+        break;        
         case NO_FOR:
             ast_free(node->body);          // corpo do bloco/loop
             break;
