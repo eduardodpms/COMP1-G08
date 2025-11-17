@@ -89,7 +89,7 @@ extern int yylineno;
 %nonassoc EQ NEQ
 %nonassoc LT GT LE GE
 %left PLUS MINUS
-%left MULT DIV MOD MOD 
+%left MULT DIV MOD 
 %right ASSIGN
 
 /* símbolos */
