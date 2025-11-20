@@ -68,12 +68,30 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         break;
     case NO_OP:
     if (raiz->valor == OP_ASSIGN) {
-        // ATRIBUIÇÃO: sem parênteses
         gerarCodigoC_rec(raiz->esquerda, out);
         fprintf(out, " = ");
         gerarCodigoC_rec(raiz->direita, out);
+    } else if (raiz->valor == OP_INCREMENT) {
+        if (raiz->esquerda) {
+            // Pós-incremento: x++
+            gerarCodigoC_rec(raiz->esquerda, out);
+            fprintf(out, "++");
+        } else {
+            // Pré-incremento: ++x
+            fprintf(out, "++");
+            gerarCodigoC_rec(raiz->direita, out);
+        }
+    } else if (raiz->valor == OP_DECREMENT) {
+        if (raiz->esquerda) {
+            // Pós-decremento: x--
+            gerarCodigoC_rec(raiz->esquerda, out);
+            fprintf(out, "--");
+        } else {
+            // Pré-decremento: --x
+            fprintf(out, "--");
+            gerarCodigoC_rec(raiz->direita, out);
+        }
     } else {
-        // Outros operadores: com parênteses
         fprintf(out, "(");
         gerarCodigoC_rec(raiz->esquerda, out);
         switch(raiz->valor) {

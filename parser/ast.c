@@ -488,6 +488,8 @@ void imprimirAST_rec(NoAST *raiz, int nivel)
         case OP_GT: printf("OP: >\n"); break;
         case OP_LE: printf("OP: <=\n"); break;
         case OP_GE: printf("OP: >=\n"); break;
+        case OP_INCREMENT: printf("OP: ++\\n"); break;
+        case OP_DECREMENT: printf("OP: --\\n"); break;
         default: printf("OP: %c\n", (char)raiz->valor); break;
     }
     if (raiz->esquerda)

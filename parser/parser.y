@@ -82,7 +82,7 @@ extern int yylineno;
 %token EQ NEQ LT GT LE GE
 
 %token MOD
-
+%token INCREMENT DECREMENT
 // precedência e associatividade dos operadores
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
@@ -221,6 +221,12 @@ expr:
     }
     | expr GE expr   { 
     $$ = criarNoOp(OP_GE, $1, $3);
+    }
+    | expr INCREMENT {
+        $$ = criarNoOp(OP_INCREMENT, $1, NULL);
+    }
+    | expr DECREMENT {
+        $$ = criarNoOp(OP_DECREMENT, $1, NULL);
     }
     | IDENT ASSIGN expr %prec ASSIGN {
         $$ = criarNoOp(OP_ASSIGN, criarNoId($1), $3);

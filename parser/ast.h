@@ -9,6 +9,8 @@
 #define OP_LE 260
 #define OP_GE 261
 #define OP_ASSIGN 262 
+#define OP_INCREMENT 266
+#define OP_DECREMENT 267
 
 typedef enum
 {

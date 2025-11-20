@@ -63,6 +63,8 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "<"           { return LT; }
 ">"           { return GT; }
 "%"           { return MOD; }
+"++"          { return INCREMENT; }
+"--"          { return DECREMENT; }
 ";"           { return SEMICOLON; }
 ":"           { return COLON; }
 ","           { return COMMA; }
