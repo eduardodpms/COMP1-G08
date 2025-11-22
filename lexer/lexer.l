@@ -1,8 +1,9 @@
 %{
+#include "parser.tab.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "parser.tab.h"   
+#include <stddef.h>  
 
 extern int yylineno;   /* mantido pelo flex quando usamos %option yylineno */
 extern int compilation_error_count;  /* contador global definido no parser.y */
@@ -55,7 +56,15 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "*"           { return MULT; }
 "/"           { return DIV; }
 "="           { return ASSIGN; }
-
+"=="          { return EQ; }
+"!="          { return NEQ; }
+"<="          { return LE; }
+">="          { return GE; }
+"<"           { return LT; }
+">"           { return GT; }
+"%"           { return MOD; }
+"++"          { return INCREMENT; }
+"--"          { return DECREMENT; }
 ";"           { return SEMICOLON; }
 ":"           { return COLON; }
 ","           { return COMMA; }
@@ -68,7 +77,16 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "console.log" { return CONSOLE_LOG; }  /* token para output */
 
 [0-9]+                 { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
-\"[^\"]*\"             { yylval.sval = strdup(yytext); return STRING_LITERAL; }
+\"[^\"]*\" {
+    size_t len = strlen(yytext);
+    if (len < 2) { yylval.sval = strdup(""); return STRING_LITERAL; }
+    char *str = malloc((len - 2) + 1);  /* +1 for '\0' */
+    if (!str) { fprintf(stderr, "Erro de memória!\n"); exit(1); }
+    strncpy(str, yytext + 1, len - 2);
+    str[len - 2] = '\0';
+    yylval.sval = str;
+    return STRING_LITERAL;
+}
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.sval = strdup(yytext); return IDENT; }
 
 \n          {  } /* separar \n para atualizar yylineno corretamente e para mensagens de erro precisas */
