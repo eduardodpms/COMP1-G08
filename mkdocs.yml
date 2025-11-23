@@ -1,0 +1,53 @@
+repo_url: https://github.com/eduardodpms/COMP1-G08/tree/main
+repo_name: COMP1-G08
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - footnotes
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.snippets
+  - pymdownx.keys
+
+site_name: Compiladores - Grupo 08
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - content.code.annotate
+    - content.tabs.link
+    - header.autohide
+    - navigation.expand
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.top
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: claro
+      toggle:
+        icon: material/weather-night
+        name: Escuro
+
+    - media: "(prefers-color-scheme: light)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Claro
+
+  language: pt-BR
+
+extra_css: [stylesheets/extra.css]
+
+nav:
+  - Home: index.md
