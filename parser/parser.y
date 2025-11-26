@@ -190,50 +190,8 @@ declaration:
     ;
 
 expr:
-    expr PLUS expr {
-       $$ = criarNoOp('+', $1, $3);
-    }
-    | expr MINUS expr {
-        $$ = criarNoOp('-', $1, $3);
-    }
-    | expr MULT expr {
-        $$ = criarNoOp('*', $1, $3);
-    }
-    | expr DIV expr {
-        $$ = criarNoOp('/', $1, $3);
-    }
-    | expr MOD expr {
-        $$ = criarNoOp('%', $1, $3);
-    }
-    | expr EQ expr   { 
-    $$ = criarNoOp(OP_EQ, $1, $3);
-    }
-    | expr NEQ expr  { 
-    $$ = criarNoOp(OP_NEQ, $1, $3);
-    }
-    | expr LT expr   { 
-    $$ = criarNoOp(OP_LT, $1, $3);
-    }
-    | expr GT expr   { 
-    $$ = criarNoOp(OP_GT, $1, $3);
-    }
-    | expr LE expr   { 
-    $$ = criarNoOp(OP_LE, $1, $3);
-    }
-    | expr GE expr   { 
-    $$ = criarNoOp(OP_GE, $1, $3);
-    }
-    | expr INCREMENT {
-        $$ = criarNoOp(OP_INCREMENT, $1, NULL);
-    }
-    | expr DECREMENT {
-        $$ = criarNoOp(OP_DECREMENT, $1, NULL);
-    }
-    | IDENT ASSIGN expr %prec ASSIGN {
-        $$ = criarNoOp(OP_ASSIGN, criarNoId($1), $3);
-        free($1);
-   }
-    | NUMBER_LITERAL {
+    /* Expressões atômicas - MAIOR precedência */
+    NUMBER_LITERAL {
         $$ = criarNoNum($1);
     } 
     | STRING_LITERAL {
@@ -244,7 +202,7 @@ expr:
         $$ = criarNoBool($1);
     }
     | IDENT {
-    char *ident_name = $1;
+        char *ident_name = $1;
         int ok;
         int valor = obterValor(ident_name, &ok); 
         if (ok) {
@@ -252,14 +210,62 @@ expr:
         } else {
             $$ = criarNoId(ident_name);
         }
-        $$ = criarNoId(ident_name);
         free(ident_name);
     }
     | '(' expr ')' {
-        $$ = $2;
+        $$ = $2;  // Parênteses têm a mais alta precedência
     }
-    ;
-    ;
+    
+    /* Operadores unários */
+    | expr INCREMENT {
+        $$ = criarNoOp(OP_INCREMENT, $1, NULL);
+    }
+    | expr DECREMENT {
+        $$ = criarNoOp(OP_DECREMENT, $1, NULL);
+    }
+    
+    /* Operadores binários - por ordem de precedência */
+    | expr MULT expr {
+        $$ = criarNoOp('*', $1, $3);
+    }
+    | expr DIV expr {
+        $$ = criarNoOp('/', $1, $3);
+    }
+    | expr MOD expr {
+        $$ = criarNoOp('%', $1, $3);
+    }
+    | expr PLUS expr {
+        $$ = criarNoOp('+', $1, $3);
+    }
+    | expr MINUS expr {
+        $$ = criarNoOp('-', $1, $3);
+    }
+    | expr LT expr {
+        $$ = criarNoOp(OP_LT, $1, $3);
+    }
+    | expr GT expr {
+        $$ = criarNoOp(OP_GT, $1, $3);
+    }
+    | expr LE expr {
+        $$ = criarNoOp(OP_LE, $1, $3);
+    }
+    | expr GE expr {
+        $$ = criarNoOp(OP_GE, $1, $3);
+    }
+    | expr EQ expr {
+        $$ = criarNoOp(OP_EQ, $1, $3);
+    }
+    | expr NEQ expr {
+        $$ = criarNoOp(OP_NEQ, $1, $3);
+    }
+    
+    /* Atribuição - MENOR precedência */
+    | IDENT ASSIGN expr %prec ASSIGN {
+        $$ = criarNoOp(OP_ASSIGN, criarNoId($1), $3);
+        free($1);
+    }
+; 
+
 /* log_statement:
     CONSOLE_LOG LPAREN IDENT RPAREN SEMICOLON {
         fprintf(out, "printf(\"%%s\\n\", %s);\n", $3);
