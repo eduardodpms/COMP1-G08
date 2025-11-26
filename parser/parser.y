@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "tabela.h"
 #include "codegen.h"
+#include "otimizador.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -390,6 +391,8 @@ int main(int argc, char **argv) {
 
     pushScope();
     yyparse();
+
+    ast_root = otimizarStrengthReduction(ast_root);
 
     verificarTiposAST(ast_root);
     
