@@ -15,6 +15,8 @@
 extern int yylineno;                              // linha atual do parser
 extern void report_error(int, const char *, ...); // declarada no parser.y
 
+void ast_free(NoAST *node);
+
 const char *tipoNoToString(NoTipo tipo)
 {
     switch (tipo)
@@ -280,6 +282,45 @@ NoAST *removerBlocosExtras(NoAST *raiz) {
     return raiz;
 }
 
+NoAST *fold_constants(NoAST *raiz) {
+    if (!raiz) return NULL;
+
+    if (raiz->esquerda) raiz->esquerda = fold_constants(raiz->esquerda);
+    if (raiz->direita) raiz->direita = fold_constants(raiz->direita);
+    if (raiz->prox) raiz->prox = fold_constants(raiz->prox);
+
+    if (raiz->tipo == NO_ID) {
+        if (raiz->nome && raiz->nome[0] != '\0') {
+            int ok = 0;
+            int val = obterValor(raiz->nome, &ok);
+            if (ok) {
+                NoAST *old = raiz;
+                NoAST *num = criarNoNum(val);
+                num->prox = old->prox;
+                num->linha = old->linha;
+                ast_free(old);
+                return num;
+            }
+        }
+        return raiz;
+    }
+
+    if (raiz->tipo == NO_OP) {
+        int ok = 0;
+        int val = avaliarExpr(raiz, &ok);
+        if (ok) {
+            NoAST *old = raiz;
+            NoAST *num = criarNoNum(val);
+            num->prox = old->prox;
+            num->linha = old->linha;
+            old->prox = NULL;
+            ast_free(old);
+            return num;
+        }
+    }
+    return raiz;
+}
+
 TipoDado inferirTipo(NoAST *expr)
 {
     if (!expr)
@@ -390,7 +431,7 @@ int avaliarExpr(NoAST *expr, int *ok)
 
     case NO_BOOL:
         *ok = 1;
-        return expr->valor;
+        return expr->valor ? 1 : 0;
 
     case NO_ID:
     {
@@ -405,6 +446,11 @@ int avaliarExpr(NoAST *expr, int *ok)
         int ok1 = 0, ok2 = 0;
         int v1 = avaliarExpr(expr->esquerda, &ok1);
         int v2 = avaliarExpr(expr->direita, &ok2);
+
+        if (expr->valor == OP_INCREMENT || expr->valor == OP_DECREMENT) {
+            *ok = 0;
+            return 0;
+        }
         if (!ok1 || !ok2)
         {
             *ok = 0;
@@ -413,14 +459,19 @@ int avaliarExpr(NoAST *expr, int *ok)
         *ok = 1;
         switch (expr->valor)
         {
-        case '+':
-            return v1 + v2;
-        case '-':
-            return v1 - v2;
-        case '*':
-            return v1 * v2;
-        case '/':
-            return v2 != 0 ? v1 / v2 : 0;
+        case '+': return v1 + v2;
+        case '-': return v1 - v2;
+        case '*': return v1 * v2;
+        case '/': return (v2 != 0) ? (v1 / v2) : 0;
+        case '%': return (v2 != 0) ? (v1 % v2) : 0;
+
+        case OP_EQ:  return (v1 == v2) ? 1 : 0;
+        case OP_NEQ: return (v1 != v2) ? 1 : 0;
+        case OP_LT:  return (v1 <  v2) ? 1 : 0;
+        case OP_GT:  return (v1 >  v2) ? 1 : 0;
+        case OP_LE:  return (v1 <= v2) ? 1 : 0;
+        case OP_GE:  return (v1 >= v2) ? 1 : 0;
+
         default:
             *ok = 0;
             return 0;

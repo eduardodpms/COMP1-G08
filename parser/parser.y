@@ -106,6 +106,7 @@ extern int yylineno;
 %type <ast_node> stmt_list
 %type <ast_node> block
 %type <ast_node> if_stmt while_stmt for_stmt
+%type <ast_node> declaration_no_semi
 %type <ast_node> declaration_or_expr
 %type <ast_node> switch_stmt case_list case_item
 %type <ast_node> console_stmt
@@ -243,16 +244,16 @@ expr:
         $$ = criarNoBool($1);
     }
     | IDENT {
-    char *ident_name = $1;
+        char *ident_name = $1;
         int ok;
-        int valor = obterValor(ident_name, &ok); 
+        int valor = obterValor(ident_name, &ok);
         if (ok) {
             $$ = criarNoNum(valor);
+            free(ident_name);
         } else {
             $$ = criarNoId(ident_name);
+            free(ident_name);
         }
-        $$ = criarNoId(ident_name);
-        free(ident_name);
     }
     | '(' expr ')' {
         $$ = $2;
@@ -313,6 +314,7 @@ statement:
     | for_stmt    { $$ = $1; }
     | switch_stmt { $$ = $1; }
     | console_stmt { $$ = $1; } 
+    | CONTINUE SEMICOLON { $$ = criarNoContinue(); }
     | expr SEMICOLON { $$ = $1; }
     | error SEMICOLON { yyerrok; yyclearin; $$ = NULL; }
     ;
@@ -334,13 +336,46 @@ while_stmt:
     }
 ;
 
+declaration_no_semi:
+    /* number */
+    var_kind IDENT COLON TYPE_NUMBER ASSIGN expr {
+        char *ident_name = $2;
+        $$ = criarNoDecl($1, TIPO_NUMBER, ident_name, $6);
+        inserirSimbolo(ident_name, TIPO_NUMBER);
+
+        int ok;
+        int valor = avaliarExpr($6, &ok);
+        if(ok) {
+            atualizarValorConstante(ident_name, valor);
+        }
+
+        free(ident_name);
+    }
+
+    /* string */
+    | var_kind IDENT COLON TYPE_STRING ASSIGN expr {
+        char *ident_name = $2;
+        $$ = criarNoDecl($1, TIPO_STRING, ident_name, $6);
+        inserirSimbolo(ident_name, TIPO_STRING);
+        free(ident_name);
+    }
+    /* boolean */
+    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN expr {
+        char *ident_name = $2;
+        $$ = criarNoDecl($1, TIPO_BOOLEAN, ident_name, $6);
+        inserirSimbolo(ident_name, TIPO_BOOLEAN);
+        free(ident_name);
+    }
+;
+
 /* for (init ; cond ; update) statement
    where init can be a declaration or an expr or empty
 */
 declaration_or_expr:
     declaration { $$ = $1; }
+  | declaration_no_semi { $$ = $1; }   /* aceita declaração sem ';' para o init do for */
   | expr { $$ = $1; }
-  | { $$ = NULL; }
+  | /* empty */ { $$ = NULL; }
 ;
 
 for_stmt:
@@ -392,6 +427,8 @@ int main(int argc, char **argv) {
     yyparse();
 
     verificarTiposAST(ast_root);
+
+    ast_root = fold_constants(ast_root);
     
     if (compilation_error_count > 0) {
         fprintf(stderr, "Encontrados %d erro(s). Abortando.\n", compilation_error_count);

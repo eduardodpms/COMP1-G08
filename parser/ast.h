@@ -104,8 +104,10 @@ NoAST *criarNoContinue();
 NoAST *criarNoSwitch(NoAST *expr, NoAST *cases);
 // Cria um nó "case"
 NoAST *criarNoCase(NoAST *caseExpr, NoAST *caseBody);
-//Cria um nó "ConsoleLog"
+// Cria um nó "ConsoleLog"
 NoAST *criarNoConsoleLog(NoAST *expr);
+// Realiza constant folding sobre a árvore
+NoAST *fold_constants(NoAST *root);
 
 
 
