@@ -10,22 +10,31 @@ static void free_node_shallow(NoAST *n)
         free(n);
 }
 
-// Helper para clonar (caso precise reativar somas repetidas, mas agora não estamos usando)
-// Mantido caso precise no futuro, ou removível.
+// Função necessária para duplicar nós na otimização de multiplicação
 static NoAST *cloneAST(NoAST *n)
 {
     if (!n)
         return NULL;
-    NoAST *c = malloc(sizeof(NoAST));
+    NoAST *c = calloc(1, sizeof(NoAST)); // calloc zera a memória
+
+    // Copia dados primitivos (tipo, valor, nome, etc)
     memcpy(c, n, sizeof(NoAST));
+
+    // Importante: O clone não deve apontar para o próximo comando da lista original
     c->prox = NULL;
+
+    // Clona filhos recursivamente (Deep Copy)
     c->esquerda = cloneAST(n->esquerda);
     c->direita = cloneAST(n->direita);
     c->body = cloneAST(n->body);
     c->else_branch = cloneAST(n->else_branch);
     c->update = cloneAST(n->update);
+
     if (n->tipo == NO_DECL)
+    {
         c->decl.expr = cloneAST(n->decl.expr);
+    }
+
     return c;
 }
 
@@ -34,6 +43,7 @@ NoAST *otimizarStrengthReduction(NoAST *raiz)
     if (!raiz)
         return NULL;
 
+    // Otimiza filhos primeiro (Bottom-Up)
     raiz->esquerda = otimizarStrengthReduction(raiz->esquerda);
     raiz->direita = otimizarStrengthReduction(raiz->direita);
     if (raiz->update)
@@ -44,13 +54,15 @@ NoAST *otimizarStrengthReduction(NoAST *raiz)
         raiz->decl.expr = otimizarStrengthReduction(raiz->decl.expr);
     if (raiz->body)
         raiz->body = otimizarStrengthReduction(raiz->body);
+
+    // Otimiza o próximo statement
     raiz->prox = otimizarStrengthReduction(raiz->prox);
 
     if (raiz->tipo == NO_OP)
     {
         int op = raiz->valor;
 
-        // Constant Folding
+        // 1. Constant Folding (Cálculo de constantes)
         if (raiz->esquerda && raiz->direita &&
             raiz->esquerda->tipo == NO_NUM && raiz->direita->tipo == NO_NUM)
         {
@@ -97,27 +109,44 @@ NoAST *otimizarStrengthReduction(NoAST *raiz)
             }
         }
 
-        // Identidades
+        // 2. Identidades Algébricas e Strength Reduction
         if (op == AST_OP_MUL)
         {
-            if (raiz->esquerda && raiz->esquerda->tipo == NO_NUM && raiz->esquerda->valor == 0)
+            // x * 0 = 0
+            if ((raiz->esquerda && raiz->esquerda->tipo == NO_NUM && raiz->esquerda->valor == 0) ||
+                (raiz->direita && raiz->direita->tipo == NO_NUM && raiz->direita->valor == 0))
                 return criarNoNum(0);
-            if (raiz->direita && raiz->direita->tipo == NO_NUM && raiz->direita->valor == 0)
-                return criarNoNum(0);
-            if (raiz->esquerda && raiz->esquerda->tipo == NO_NUM && raiz->esquerda->valor == 1)
-                return raiz->direita;
+
+            // x * 1 = x
             if (raiz->direita && raiz->direita->tipo == NO_NUM && raiz->direita->valor == 1)
                 return raiz->esquerda;
+            if (raiz->esquerda && raiz->esquerda->tipo == NO_NUM && raiz->esquerda->valor == 1)
+                return raiz->direita;
+
+            // Strength Reduction: x * 2 => x + x (Limitado a constantes pequenas para não poluir o C)
+            if (raiz->direita && raiz->direita->tipo == NO_NUM)
+            {
+                int k = raiz->direita->valor;
+                if (k >= 2 && k <= 5)
+                {
+                    NoAST *soma = cloneAST(raiz->esquerda);
+                    for (int i = 1; i < k; i++)
+                    {
+                        // Cria (soma + x)
+                        soma = criarNoOp(AST_OP_ADD, soma, cloneAST(raiz->esquerda));
+                    }
+                    // Mantém o ponteiro prox original
+                    soma->prox = raiz->prox;
+                    free_node_shallow(raiz);
+                    return soma;
+                }
+            }
         }
+
         if (op == AST_OP_ADD)
         {
             if (raiz->esquerda && raiz->esquerda->tipo == NO_NUM && raiz->esquerda->valor == 0)
                 return raiz->direita;
-            if (raiz->direita && raiz->direita->tipo == NO_NUM && raiz->direita->valor == 0)
-                return raiz->esquerda;
-        }
-        if (op == AST_OP_SUB)
-        {
             if (raiz->direita && raiz->direita->tipo == NO_NUM && raiz->direita->valor == 0)
                 return raiz->esquerda;
         }

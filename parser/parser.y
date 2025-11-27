@@ -53,13 +53,13 @@ extern int yylineno;
 %token SEMICOLON COMMA LPAREN RPAREN LBRACE RBRACE COLON
 %token CONSOLE_READ CONSOLE_LOG
 
+%right ASSIGN
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
-%nonassoc EQ NEQ
-%nonassoc LT GT LE GE
+%nonassoc EQ NEQ LT GT LE GE
 %left PLUS MINUS
-%left MULT DIV MOD 
-%right ASSIGN
+%left MULT DIV MOD
+%right INCREMENT DECREMENT
 
 %type <ival> var_kind
 %type <ast_node> declaration variable_definition statement expr stmt_list block if_stmt while_stmt for_stmt for_init switch_stmt case_list case_item console_stmt
