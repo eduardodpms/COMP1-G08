@@ -14,6 +14,9 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 
 %%
 
+"//".* { /* Ignora comentários de linha */ }
+"/*"([^*]|(\*+[^*/]))*\*+\/ { /* Ignora comentários de bloco */ }
+
 "if"          { return IF; }
 "else"        { return ELSE; }
 
@@ -73,10 +76,11 @@ extern int compilation_error_count;  /* contador global definido no parser.y */
 "{"           { return LBRACE; }
 "}"           { return RBRACE; }
 
-"read"        { return CONSOLE_READ; }  /* token para input */
+"console.read"  { return CONSOLE_READ; } /* token para input */
 "console.log" { return CONSOLE_LOG; }  /* token para output */
 
 [0-9]+                 { yylval.ival = atoi(yytext); return NUMBER_LITERAL; }
+
 \"[^\"]*\" {
     size_t len = strlen(yytext);
     if (len < 2) { yylval.sval = strdup(""); return STRING_LITERAL; }

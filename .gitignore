@@ -19,6 +19,7 @@ src/parser.tab.h
 src/lex.yy.c
 src/parser.tab.o
 src/lex.yy.o
+src/otimizador.o
 output.c
 saida.c
 
