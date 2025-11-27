@@ -5,6 +5,8 @@
 #include "ast.h"
 #include "tabela.h"
 
+// Função recursiva para inferir tipo durante a geração de código
+// Necessária para decidir entre %d, %s ou operações de concatenação
 TipoDado obterTipoExpressao(NoAST *expr)
 {
     if (!expr)
@@ -18,12 +20,26 @@ TipoDado obterTipoExpressao(NoAST *expr)
     case NO_BOOL:
         return TIPO_BOOLEAN;
     case NO_ID:
-        return obterTipo(expr->nome);
+        return obterTipo(expr->nome); // Agora funcionará pois o codegen popula a tabela
     case NO_OP:
-        // Se for comparação, retorna booleano
+        // Comparadores
         if (expr->valor >= AST_OP_EQ && expr->valor <= AST_OP_GE)
             return TIPO_BOOLEAN;
+
+        // Soma/Concatenação
+        if (expr->valor == AST_OP_ADD)
+        {
+            TipoDado tEsq = obterTipoExpressao(expr->esquerda);
+            TipoDado tDir = obterTipoExpressao(expr->direita);
+            if (tEsq == TIPO_STRING || tDir == TIPO_STRING)
+            {
+                return TIPO_STRING;
+            }
+            return TIPO_NUMBER;
+        }
+
         return TIPO_NUMBER;
+
     default:
         return TIPO_NUMBER;
     }
@@ -34,9 +50,15 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
     if (!raiz)
         return;
 
+    // VARIÁVEIS DE CONTROLE DE ESCOPO
+    int escopo_criado = 0;
+
     switch (raiz->tipo)
     {
     case NO_DECL:
+        // [CRÍTICO] Registra a variável na tabela para que usos futuros saibam o tipo
+        inserirSimbolo(raiz->decl.nome, raiz->decl.tipo_dado);
+
         if (raiz->decl.tipo_dado == TIPO_NUMBER || raiz->decl.tipo_dado == TIPO_BOOLEAN)
             fprintf(out, "int ");
         else if (raiz->decl.tipo_dado == TIPO_STRING)
@@ -164,6 +186,10 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         break;
 
     case NO_BLOCK:
+        // [CRÍTICO] Abre escopo para que variáveis locais existam na tabela
+        pushScope();
+        escopo_criado = 1;
+
         fprintf(out, "{\n");
         for (NoAST *s = raiz->body; s != NULL; s = s->prox)
         {
@@ -177,6 +203,8 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
             fprintf(out, "\n");
         }
         fprintf(out, "}");
+
+        // Fecha escopo (popScope chamado no final da função para evitar código inalcançável no switch)
         break;
 
     case NO_IF:
@@ -199,6 +227,10 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         break;
 
     case NO_FOR:
+        // [CRÍTICO] Abre escopo para o loop FOR (para variáveis declaradas no init)
+        pushScope();
+        escopo_criado = 1;
+
         fprintf(out, "for (");
         if (raiz->esquerda)
             gerarCodigoC_rec(raiz->esquerda, out);
@@ -235,6 +267,8 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
             {
                 fprintf(out, "default:\n");
             }
+            // Case body é tratado como lista de statements, não necessariamente um bloco
+            // Se o usuário usou chaves no case, o NO_BLOCK tratará o escopo.
             if (c->body)
             {
                 for (NoAST *s = c->body; s != NULL; s = s->prox)
@@ -257,28 +291,14 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         fprintf(out, "    printf(");
         if (raiz->esquerda)
         {
-            if (raiz->esquerda->tipo == NO_ID)
+            TipoDado tipo = obterTipoExpressao(raiz->esquerda);
+
+            if (tipo == TIPO_STRING)
             {
-                TipoDado tipo = obterTipo(raiz->esquerda->nome);
-                if (tipo == TIPO_STRING)
-                {
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                }
-                else if (tipo == TIPO_BOOLEAN)
-                {
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    fprintf(out, " ? \"true\" : \"false\"");
-                }
-                else
-                {
-                    fprintf(out, "\"%%d\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                }
+                fprintf(out, "\"%%s\\n\", ");
+                gerarCodigoC_rec(raiz->esquerda, out);
             }
-            else if (raiz->esquerda->tipo == NO_OP &&
-                     (raiz->esquerda->valor >= AST_OP_EQ && raiz->esquerda->valor <= AST_OP_GE))
+            else if (tipo == TIPO_BOOLEAN)
             {
                 fprintf(out, "\"%%s\\n\", ");
                 gerarCodigoC_rec(raiz->esquerda, out);
@@ -286,22 +306,8 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
             }
             else
             {
-                switch (raiz->esquerda->tipo)
-                {
-                case NO_STR:
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    break;
-                case NO_BOOL:
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    fprintf(out, " ? \"true\" : \"false\"");
-                    break;
-                default:
-                    fprintf(out, "\"%%d\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    break;
-                }
+                fprintf(out, "\"%%d\\n\", ");
+                gerarCodigoC_rec(raiz->esquerda, out);
             }
         }
         fprintf(out, ")");
@@ -309,6 +315,12 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
 
     default:
         break;
+    }
+
+    // [CRÍTICO] Se abriu escopo neste nó, fecha agora.
+    if (escopo_criado)
+    {
+        popScope();
     }
 }
 
@@ -320,6 +332,10 @@ void gerarCodigoC(NoAST *ast_root, const char *nomeArquivo)
         perror("Erro ao criar arquivo");
         return;
     }
+
+    // Limpa qualquer lixo anterior da tabela para garantir geração limpa
+    liberarTabelaSimbolos();
+    pushScope(); // Escopo Global para Codegen
 
     fprintf(out, "#include <stdio.h>\n");
     fprintf(out, "#include <stdlib.h>\n");
@@ -345,5 +361,8 @@ void gerarCodigoC(NoAST *ast_root, const char *nomeArquivo)
     }
 
     fprintf(out, "    return 0;\n}\n");
+
+    // Limpeza final
+    popScope(); // Fecha escopo global
     fclose(out);
 }

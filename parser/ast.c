@@ -254,9 +254,9 @@ TipoDado inferirTipo(NoAST *expr)
     case NO_BOOL:
         return TIPO_BOOLEAN;
     case NO_ID:
-        // [CORREÇÃO 1] Verificar se variável existe na tabela!
         if (!buscarSimbolo(expr->nome))
         {
+            // Se não achou na tabela (que agora é mantida por verificarTiposAST), erro.
             report_error(expr->linha, "Variavel '%s' nao declarada.", expr->nome);
             return (TipoDado)-1;
         }
@@ -267,10 +267,8 @@ TipoDado inferirTipo(NoAST *expr)
         TipoDado esq = inferirTipo(expr->esquerda);
         int op = expr->valor;
 
-        // [CORREÇÃO 2] Operadores Unários (++, --)
         if (op == AST_OP_INC || op == AST_OP_DEC)
         {
-            // Se esq for -1, erro já reportado. Ignora.
             if ((int)esq != -1 && esq != TIPO_NUMBER)
             {
                 report_error(expr->linha, "Operador unario espera 'number', recebeu '%s'", type_to_str(esq));
@@ -279,8 +277,6 @@ TipoDado inferirTipo(NoAST *expr)
         }
 
         TipoDado dir = inferirTipo(expr->direita);
-
-        // Se algum lado teve erro anterior (-1), propaga o erro sem spammar msg
         if ((int)esq == -1 || (int)dir == -1)
             return (TipoDado)-1;
 
@@ -318,15 +314,21 @@ void verificarTiposAST(NoAST *raiz)
     if (!raiz)
         return;
 
-    // [CORREÇÃO 3] Sempre chamar inferirTipo para nós de Operação,
-    // mesmo que não sejam atribuições, para validar ex: "string++;" ou "a+b" inválidos.
-    if (raiz->tipo == NO_OP)
+    // 1. GERENCIAMENTO DE ESCOPO
+    // Criamos escopo para Blocos e Loops FOR
+    int escopo_criado = 0;
+    if (raiz->tipo == NO_BLOCK || raiz->tipo == NO_FOR)
     {
-        inferirTipo(raiz);
+        pushScope();
+        escopo_criado = 1;
     }
 
+    // 2. REGISTRO DE DECLARAÇÕES NA TABELA (Reconstrução)
     if (raiz->tipo == NO_DECL)
     {
+        // Insere na tabela atual (pode sobrescrever erro de parsing anterior)
+        inserirSimbolo(raiz->decl.nome, raiz->decl.tipo_dado);
+
         if (raiz->decl.expr)
         {
             TipoDado tipoEsperado = raiz->decl.tipo_dado;
@@ -340,15 +342,15 @@ void verificarTiposAST(NoAST *raiz)
         }
     }
 
-    // Se for atribuição, o inferirTipo já checou os tipos dos operandos,
-    // mas precisamos checar a compatibilidade ID = Expr.
+    // 3. CHECAGENS ESPECÍFICAS
     if (raiz->tipo == NO_OP && raiz->valor == AST_OP_ASSIGN)
     {
         if (raiz->esquerda && raiz->esquerda->tipo == NO_ID)
         {
+            // Verifica se variável existe
             if (!buscarSimbolo(raiz->esquerda->nome))
             {
-                // Erro já reportado pelo inferirTipo(raiz->esquerda), mas reforçamos
+                report_error(raiz->linha, "Atribuicao a variavel nao declarada '%s'", raiz->esquerda->nome);
             }
             else
             {
@@ -364,11 +366,36 @@ void verificarTiposAST(NoAST *raiz)
         }
     }
 
-    verificarTiposAST(raiz->esquerda);
-    verificarTiposAST(raiz->direita);
-    verificarTiposAST(raiz->update);
-    verificarTiposAST(raiz->body);
-    verificarTiposAST(raiz->else_branch);
+    // Valida operações (ex: 10 + "a")
+    if (raiz->tipo == NO_OP)
+        inferirTipo(raiz);
+
+    // 4. RECURSÃO (CUIDADO COM A ORDEM DO ESCOPO)
+
+    // Se for DECL, verificamos a expressão de inicialização
+    if (raiz->tipo == NO_DECL)
+    {
+        verificarTiposAST(raiz->decl.expr);
+    }
+    else
+    {
+        // Init do FOR define variável no escopo novo
+        verificarTiposAST(raiz->esquerda);
+        verificarTiposAST(raiz->direita);
+        verificarTiposAST(raiz->update);
+        verificarTiposAST(raiz->else_branch);
+
+        // Body roda dentro do escopo
+        verificarTiposAST(raiz->body);
+    }
+
+    // 5. DESTRUIR ESCOPO ANTES DE IR PRO PRÓXIMO IRMÃO
+    if (escopo_criado)
+    {
+        popScope();
+    }
+
+    // 6. PRÓXIMO COMANDO (mesmo nível de escopo do pai)
     verificarTiposAST(raiz->prox);
 }
 
@@ -416,21 +443,9 @@ int avaliarExpr(NoAST *expr, int *ok)
             return (v2 != 0) ? v1 / v2 : 0;
         case AST_OP_MOD:
             return (v2 != 0) ? v1 % v2 : 0;
-        case AST_OP_EQ:
-            return v1 == v2;
-        case AST_OP_NEQ:
-            return v1 != v2;
-        case AST_OP_LT:
-            return v1 < v2;
-        case AST_OP_GT:
-            return v1 > v2;
-        case AST_OP_LE:
-            return v1 <= v2;
-        case AST_OP_GE:
-            return v1 >= v2;
         default:
             *ok = 0;
-            return 0;
+            return 0; // Simplificado
         }
     }
     default:

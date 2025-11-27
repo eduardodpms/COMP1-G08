@@ -246,6 +246,9 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Encontrados %d erro(s). Abortando.\n", compilation_error_count);
         fclose(yyin); return EXIT_FAILURE;
     }
+    
+    liberarTabelaSimbolos(); 
+    pushScope();
 
     ast_root = otimizarStrengthReduction(ast_root);
     verificarTiposAST(ast_root);
