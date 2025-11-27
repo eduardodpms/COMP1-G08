@@ -35,12 +35,6 @@ const char *tipoNoToString(NoTipo tipo);
 TipoDado inferirTipo(NoAST *expr);
 void verificarTiposAST(NoAST *raiz);
 
-// --- FUNÇÕES DE CRIAÇÃO (MANTIDAS IGUAIS, OMITINDO PARA BREVIDADE) ---
-// (Mantenha as funções criarNoNum, criarNoStr, criarNoBool, criarNoId, criarNoOp,
-//  criarNoDecl, adicionarDeclaracao, criarNoBlock, criarNoIf, criarNoWhile,
-//  criarNoFor, criarNoBreak, criarNoContinue, criarNoCase, criarNoSwitch,
-//  criarNoConsoleLog e removerBlocosExtras exatamente como estavam)
-
 NoAST *criarNoNum(int valor)
 {
     NoAST *novo = calloc(1, sizeof(NoAST));
@@ -236,10 +230,6 @@ NoAST *removerBlocosExtras(NoAST *raiz)
     return raiz;
 }
 
-// ---------------------------------------------------------
-// ANÁLISE SEMÂNTICA CORRIGIDA
-// ---------------------------------------------------------
-
 TipoDado inferirTipo(NoAST *expr)
 {
     if (!expr)
@@ -314,8 +304,6 @@ void verificarTiposAST(NoAST *raiz)
     if (!raiz)
         return;
 
-    // 1. GERENCIAMENTO DE ESCOPO
-    // Criamos escopo para Blocos e Loops FOR
     int escopo_criado = 0;
     if (raiz->tipo == NO_BLOCK || raiz->tipo == NO_FOR)
     {
@@ -323,10 +311,9 @@ void verificarTiposAST(NoAST *raiz)
         escopo_criado = 1;
     }
 
-    // 2. REGISTRO DE DECLARAÇÕES NA TABELA (Reconstrução)
     if (raiz->tipo == NO_DECL)
     {
-        // Insere na tabela atual (pode sobrescrever erro de parsing anterior)
+
         inserirSimbolo(raiz->decl.nome, raiz->decl.tipo_dado);
 
         if (raiz->decl.expr)
@@ -342,7 +329,6 @@ void verificarTiposAST(NoAST *raiz)
         }
     }
 
-    // 3. CHECAGENS ESPECÍFICAS
     if (raiz->tipo == NO_OP && raiz->valor == AST_OP_ASSIGN)
     {
         if (raiz->esquerda && raiz->esquerda->tipo == NO_ID)
@@ -370,8 +356,6 @@ void verificarTiposAST(NoAST *raiz)
     if (raiz->tipo == NO_OP)
         inferirTipo(raiz);
 
-    // 4. RECURSÃO (CUIDADO COM A ORDEM DO ESCOPO)
-
     // Se for DECL, verificamos a expressão de inicialização
     if (raiz->tipo == NO_DECL)
     {
@@ -389,19 +373,15 @@ void verificarTiposAST(NoAST *raiz)
         verificarTiposAST(raiz->body);
     }
 
-    // 5. DESTRUIR ESCOPO ANTES DE IR PRO PRÓXIMO IRMÃO
+    // DESTRUIR ESCOPO ANTES DE IR PRO PRÓXIMO IRMÃO
     if (escopo_criado)
     {
         popScope();
     }
 
-    // 6. PRÓXIMO COMANDO (mesmo nível de escopo do pai)
+    // PRÓXIMO COMANDO (mesmo nível de escopo do pai)
     verificarTiposAST(raiz->prox);
 }
-
-// ---------------------------------------------------------
-// AUXILIARES
-// ---------------------------------------------------------
 
 int avaliarExpr(NoAST *expr, int *ok)
 {

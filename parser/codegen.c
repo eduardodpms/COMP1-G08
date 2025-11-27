@@ -5,8 +5,6 @@
 #include "ast.h"
 #include "tabela.h"
 
-// Função recursiva para inferir tipo durante a geração de código
-// Necessária para decidir entre %d, %s ou operações de concatenação
 TipoDado obterTipoExpressao(NoAST *expr)
 {
     if (!expr)
@@ -56,7 +54,7 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
     switch (raiz->tipo)
     {
     case NO_DECL:
-        // [CRÍTICO] Registra a variável na tabela para que usos futuros saibam o tipo
+        // reegistra a variável na tabela para que usos futuros saibam o tipo
         inserirSimbolo(raiz->decl.nome, raiz->decl.tipo_dado);
 
         if (raiz->decl.tipo_dado == TIPO_NUMBER || raiz->decl.tipo_dado == TIPO_BOOLEAN)
@@ -186,7 +184,7 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         break;
 
     case NO_BLOCK:
-        // [CRÍTICO] Abre escopo para que variáveis locais existam na tabela
+        // Abre escopo para o bloco
         pushScope();
         escopo_criado = 1;
 
@@ -204,7 +202,7 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         }
         fprintf(out, "}");
 
-        // Fecha escopo (popScope chamado no final da função para evitar código inalcançável no switch)
+        // fecha escopo
         break;
 
     case NO_IF:
@@ -267,8 +265,7 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
             {
                 fprintf(out, "default:\n");
             }
-            // Case body é tratado como lista de statements, não necessariamente um bloco
-            // Se o usuário usou chaves no case, o NO_BLOCK tratará o escopo.
+
             if (c->body)
             {
                 for (NoAST *s = c->body; s != NULL; s = s->prox)
@@ -317,7 +314,7 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
         break;
     }
 
-    // [CRÍTICO] Se abriu escopo neste nó, fecha agora.
+    // se abriu escopo neste nó, fecha agora.
     if (escopo_criado)
     {
         popScope();

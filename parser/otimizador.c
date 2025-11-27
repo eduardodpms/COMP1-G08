@@ -10,20 +10,18 @@ static void free_node_shallow(NoAST *n)
         free(n);
 }
 
-// Função necessária para duplicar nós na otimização de multiplicação
 static NoAST *cloneAST(NoAST *n)
 {
     if (!n)
         return NULL;
     NoAST *c = calloc(1, sizeof(NoAST)); // calloc zera a memória
 
-    // Copia dados primitivos (tipo, valor, nome, etc)
+    // copia dados primitivos (tipo, valor, nome, etc)
     memcpy(c, n, sizeof(NoAST));
 
-    // Importante: O clone não deve apontar para o próximo comando da lista original
     c->prox = NULL;
 
-    // Clona filhos recursivamente (Deep Copy)
+    // clona filhos recursivamente
     c->esquerda = cloneAST(n->esquerda);
     c->direita = cloneAST(n->direita);
     c->body = cloneAST(n->body);
@@ -43,7 +41,7 @@ NoAST *otimizarStrengthReduction(NoAST *raiz)
     if (!raiz)
         return NULL;
 
-    // Otimiza filhos primeiro (Bottom-Up)
+    // Otimiza filhos primeiro
     raiz->esquerda = otimizarStrengthReduction(raiz->esquerda);
     raiz->direita = otimizarStrengthReduction(raiz->direita);
     if (raiz->update)
@@ -62,7 +60,6 @@ NoAST *otimizarStrengthReduction(NoAST *raiz)
     {
         int op = raiz->valor;
 
-        // 1. Constant Folding (Cálculo de constantes)
         if (raiz->esquerda && raiz->direita &&
             raiz->esquerda->tipo == NO_NUM && raiz->direita->tipo == NO_NUM)
         {
@@ -109,7 +106,6 @@ NoAST *otimizarStrengthReduction(NoAST *raiz)
             }
         }
 
-        // 2. Identidades Algébricas e Strength Reduction
         if (op == AST_OP_MUL)
         {
             // x * 0 = 0
@@ -123,7 +119,6 @@ NoAST *otimizarStrengthReduction(NoAST *raiz)
             if (raiz->esquerda && raiz->esquerda->tipo == NO_NUM && raiz->esquerda->valor == 1)
                 return raiz->direita;
 
-            // Strength Reduction: x * 2 => x + x (Limitado a constantes pequenas para não poluir o C)
             if (raiz->direita && raiz->direita->tipo == NO_NUM)
             {
                 int k = raiz->direita->valor;

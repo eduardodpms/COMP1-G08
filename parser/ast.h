@@ -101,7 +101,6 @@ void ast_free(NoAST *node);
 void imprimirAST(NoAST *raiz);
 void verificarTiposAST(NoAST *raiz);
 
-// --- ADICIONE ESTA LINHA AQUI ---
 int avaliarExpr(NoAST *expr, int *ok);
 
 int obterValor(const char *nome, int *ok);
