@@ -5,31 +5,41 @@
 #include "ast.h"
 #include "tabela.h"
 
-TipoDado obterTipoExpressao(NoAST *expr) {
-    if (!expr) return -1;
-    
-    switch (expr->tipo) {
-        case NO_NUM:
-            return TIPO_NUMBER;
-        case NO_STR:
-            return TIPO_STRING;
-        case NO_BOOL:
+TipoDado obterTipoExpressao(NoAST *expr)
+{
+    if (!expr)
+        return -1;
+    switch (expr->tipo)
+    {
+    case NO_NUM:
+        return TIPO_NUMBER;
+    case NO_STR:
+        return TIPO_STRING;
+    case NO_BOOL:
+        return TIPO_BOOLEAN;
+    case NO_ID:
+        return obterTipo(expr->nome); // Agora funcionará pois o codegen popula a tabela
+    case NO_OP:
+        // Comparadores
+        if (expr->valor >= AST_OP_EQ && expr->valor <= AST_OP_GE)
             return TIPO_BOOLEAN;
-        case NO_ID:
-            return obterTipo(expr->nome);
-        case NO_OP:
-            // Operações de comparação retornam boolean
-            if (expr->valor == OP_EQ || expr->valor == OP_NEQ ||
-                expr->valor == OP_LT || expr->valor == OP_GT ||
-                expr->valor == OP_LE || expr->valor == OP_GE) {
-                return TIPO_BOOLEAN;
-            } else {
-                // Operações aritméticas retornam number
-                return TIPO_NUMBER;
+
+        // Soma/Concatenação
+        if (expr->valor == AST_OP_ADD)
+        {
+            TipoDado tEsq = obterTipoExpressao(expr->esquerda);
+            TipoDado tDir = obterTipoExpressao(expr->direita);
+            if (tEsq == TIPO_STRING || tDir == TIPO_STRING)
+            {
+                return TIPO_STRING;
             }
-            break;
-        default:
-            return TIPO_NUMBER; // padrão para outros casos
+            return TIPO_NUMBER;
+        }
+
+        return TIPO_NUMBER;
+
+    default:
+        return TIPO_NUMBER;
     }
 }
 
@@ -38,27 +48,29 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
     if (!raiz)
         return;
 
+    // VARIÁVEIS DE CONTROLE DE ESCOPO
+    int escopo_criado = 0;
+
     switch (raiz->tipo)
     {
     case NO_DECL:
-        // Tipo da variável
-        if (raiz->decl.tipo_dado == TIPO_NUMBER)
-            fprintf(out, "int ");
-        else if (raiz->decl.tipo_dado == TIPO_BOOLEAN)
+        // reegistra a variável na tabela para que usos futuros saibam o tipo
+        inserirSimbolo(raiz->decl.nome, raiz->decl.tipo_dado);
+
+        if (raiz->decl.tipo_dado == TIPO_NUMBER || raiz->decl.tipo_dado == TIPO_BOOLEAN)
             fprintf(out, "int ");
         else if (raiz->decl.tipo_dado == TIPO_STRING)
             fprintf(out, "char* ");
 
         fprintf(out, "%s = ", raiz->decl.nome);
-        gerarCodigoC_rec(raiz->decl.expr, out); // expressão inicialização
-        fprintf(out, ";\n");
+        gerarCodigoC_rec(raiz->decl.expr, out);
         break;
 
     case NO_NUM:
         fprintf(out, "%d", raiz->valor);
         break;
     case NO_BOOL:
-        fprintf(out, "%d", raiz->valor); // true = 1, false = 0
+        fprintf(out, "%d", raiz->valor);
         break;
     case NO_STR:
         fprintf(out, "\"%s\"", raiz->texto);
@@ -66,193 +78,248 @@ void gerarCodigoC_rec(NoAST *raiz, FILE *out)
     case NO_ID:
         fprintf(out, "%s", raiz->nome);
         break;
+
     case NO_OP:
-    if (raiz->valor == OP_ASSIGN) {
-        gerarCodigoC_rec(raiz->esquerda, out);
-        fprintf(out, " = ");
-        gerarCodigoC_rec(raiz->direita, out);
-    } else if (raiz->valor == OP_INCREMENT) {
-        if (raiz->esquerda) {
-            // Pós-incremento: x++
+        if (raiz->valor == AST_OP_READ)
+        {
+            fprintf(out, "({ int val; scanf(\"%%d\", &val); val; })");
+        }
+        else if (raiz->valor == AST_OP_ASSIGN)
+        {
             gerarCodigoC_rec(raiz->esquerda, out);
-            fprintf(out, "++");
-        } else {
-            // Pré-incremento: ++x
-            fprintf(out, "++");
+            fprintf(out, " = ");
             gerarCodigoC_rec(raiz->direita, out);
         }
-    } else if (raiz->valor == OP_DECREMENT) {
-        if (raiz->esquerda) {
-            // Pós-decremento: x--
-            gerarCodigoC_rec(raiz->esquerda, out);
-            fprintf(out, "--");
-        } else {
-            // Pré-decremento: --x
-            fprintf(out, "--");
-            gerarCodigoC_rec(raiz->direita, out);
+        else if (raiz->valor == AST_OP_INC)
+        {
+            if (raiz->esquerda)
+            {
+                gerarCodigoC_rec(raiz->esquerda, out);
+                fprintf(out, "++");
+            }
+            else
+            {
+                fprintf(out, "++");
+                gerarCodigoC_rec(raiz->direita, out);
+            }
         }
-    } else {
-        fprintf(out, "(");
-        gerarCodigoC_rec(raiz->esquerda, out);
-        switch(raiz->valor) {
-            case '+': fprintf(out, " + "); break;
-            case '-': fprintf(out, " - "); break;
-            case '*': fprintf(out, " * "); break;
-            case '/': fprintf(out, " / "); break;
-            case '%': fprintf(out, " %% "); break;
-            case OP_EQ: fprintf(out, " == "); break;
-            case OP_NEQ: fprintf(out, " != "); break;
-            case OP_LT: fprintf(out, " < "); break;
-            case OP_GT: fprintf(out, " > "); break;
-            case OP_LE: fprintf(out, " <= "); break;
-            case OP_GE: fprintf(out, " >= "); break;
-            default: fprintf(out, " ? "); break;
+        else if (raiz->valor == AST_OP_DEC)
+        {
+            if (raiz->esquerda)
+            {
+                gerarCodigoC_rec(raiz->esquerda, out);
+                fprintf(out, "--");
+            }
+            else
+            {
+                fprintf(out, "--");
+                gerarCodigoC_rec(raiz->direita, out);
+            }
         }
-        gerarCodigoC_rec(raiz->direita, out);
-        fprintf(out, ")");
-    }
-    break;
-    
+        else
+        {
+            int ehConcatenacao = 0;
+            if (raiz->valor == AST_OP_ADD)
+            {
+                TipoDado tEsq = obterTipoExpressao(raiz->esquerda);
+                TipoDado tDir = obterTipoExpressao(raiz->direita);
+                if (tEsq == TIPO_STRING || tDir == TIPO_STRING)
+                {
+                    ehConcatenacao = 1;
+                    fprintf(out, "concat_str(");
+                    gerarCodigoC_rec(raiz->esquerda, out);
+                    fprintf(out, ", ");
+                    gerarCodigoC_rec(raiz->direita, out);
+                    fprintf(out, ")");
+                }
+            }
+
+            if (!ehConcatenacao)
+            {
+                fprintf(out, "(");
+                gerarCodigoC_rec(raiz->esquerda, out);
+                switch (raiz->valor)
+                {
+                case AST_OP_ADD:
+                    fprintf(out, " + ");
+                    break;
+                case AST_OP_SUB:
+                    fprintf(out, " - ");
+                    break;
+                case AST_OP_MUL:
+                    fprintf(out, " * ");
+                    break;
+                case AST_OP_DIV:
+                    fprintf(out, " / ");
+                    break;
+                case AST_OP_MOD:
+                    fprintf(out, " %% ");
+                    break;
+                case AST_OP_EQ:
+                    fprintf(out, " == ");
+                    break;
+                case AST_OP_NEQ:
+                    fprintf(out, " != ");
+                    break;
+                case AST_OP_LT:
+                    fprintf(out, " < ");
+                    break;
+                case AST_OP_GT:
+                    fprintf(out, " > ");
+                    break;
+                case AST_OP_LE:
+                    fprintf(out, " <= ");
+                    break;
+                case AST_OP_GE:
+                    fprintf(out, " >= ");
+                    break;
+                default:
+                    fprintf(out, " ? ");
+                    break;
+                }
+                gerarCodigoC_rec(raiz->direita, out);
+                fprintf(out, ")");
+            }
+        }
+        break;
+
     case NO_BLOCK:
-    // Sempre use chaves para blocos, mas formate corretamente
-    fprintf(out, "{\n");
-    for (NoAST *s = raiz->body; s != NULL; s = s->prox) {
-        fprintf(out, "    "); // Indentação dentro do bloco
-        gerarCodigoC_rec(s, out);
-        
-        // Adicione ponto e vírgula para expression statements
-        if (s->tipo == NO_OP || s->tipo == NO_CONSOLE_LOG) {
-            fprintf(out, ";");
+        // Abre escopo para o bloco
+        pushScope();
+        escopo_criado = 1;
+
+        fprintf(out, "{\n");
+        for (NoAST *s = raiz->body; s != NULL; s = s->prox)
+        {
+            fprintf(out, "    ");
+            gerarCodigoC_rec(s, out);
+            if (s->tipo == NO_DECL || s->tipo == NO_OP || s->tipo == NO_CONSOLE_LOG ||
+                s->tipo == NO_BREAK || s->tipo == NO_CONTINUE || s->tipo == NO_ID)
+            {
+                fprintf(out, ";");
+            }
+            fprintf(out, "\n");
         }
-        
-        fprintf(out, "\n");
-    }
-    fprintf(out, "}");
-    break;
+        fprintf(out, "}");
+
+        // fecha escopo
+        break;
 
     case NO_IF:
-    fprintf(out, "if (");
-    gerarCodigoC_rec(raiz->esquerda, out);
-    fprintf(out, ") {\n");
-    gerarCodigoC_rec(raiz->direita, out);
-    fprintf(out, "}");
-    if (raiz->else_branch) {
-        fprintf(out, " else {\n");
-        gerarCodigoC_rec(raiz->else_branch, out);
-        fprintf(out, "}");
-    }
-    fprintf(out, "\n");
-    break;
+        fprintf(out, "if (");
+        gerarCodigoC_rec(raiz->esquerda, out);
+        fprintf(out, ") ");
+        gerarCodigoC_rec(raiz->direita, out);
+        if (raiz->else_branch)
+        {
+            fprintf(out, " else ");
+            gerarCodigoC_rec(raiz->else_branch, out);
+        }
+        break;
 
-   case NO_WHILE:
-    fprintf(out, "while (");
-    gerarCodigoC_rec(raiz->esquerda, out); // condição
-    fprintf(out, ") ");
-    gerarCodigoC_rec(raiz->body, out); // corpo do while
-    fprintf(out, "\n");
-    break;
+    case NO_WHILE:
+        fprintf(out, "while (");
+        gerarCodigoC_rec(raiz->esquerda, out);
+        fprintf(out, ") ");
+        gerarCodigoC_rec(raiz->body, out);
+        break;
 
     case NO_FOR:
+        // [CRÍTICO] Abre escopo para o loop FOR (para variáveis declaradas no init)
+        pushScope();
+        escopo_criado = 1;
+
         fprintf(out, "for (");
-        /* init */
-        if (raiz->esquerda) gerarCodigoC_rec(raiz->esquerda, out);
+        if (raiz->esquerda)
+            gerarCodigoC_rec(raiz->esquerda, out);
         fprintf(out, ";");
-        /* cond */
-        if (raiz->direita) gerarCodigoC_rec(raiz->direita, out);
+        if (raiz->direita)
+            gerarCodigoC_rec(raiz->direita, out);
         fprintf(out, ";");
-        /* update */
-        if (raiz->prox) gerarCodigoC_rec(raiz->prox, out);
+        if (raiz->update)
+            gerarCodigoC_rec(raiz->update, out);
         fprintf(out, ") ");
-        if (raiz->body) gerarCodigoC_rec(raiz->body, out);
-        fprintf(out, "\n");
+        gerarCodigoC_rec(raiz->body, out);
         break;
 
     case NO_BREAK:
-        fprintf(out, "break;\n");
+        fprintf(out, "break");
         break;
     case NO_CONTINUE:
-        fprintf(out, "continue;\n");
+        fprintf(out, "continue");
         break;
 
     case NO_SWITCH:
         fprintf(out, "switch (");
         gerarCodigoC_rec(raiz->esquerda, out);
         fprintf(out, ") {\n");
-        /* body is list of NO_CASE nodes chained by prox */
-        for (NoAST *c = raiz->body; c != NULL; c = c->prox) {
-            if (c->esquerda) {
+        for (NoAST *c = raiz->body; c != NULL; c = c->prox)
+        {
+            if (c->esquerda)
+            {
                 fprintf(out, "case ");
                 gerarCodigoC_rec(c->esquerda, out);
                 fprintf(out, ":\n");
-            } else {
+            }
+            else
+            {
                 fprintf(out, "default:\n");
             }
-            if (c->body) {
+
+            if (c->body)
+            {
                 for (NoAST *s = c->body; s != NULL; s = s->prox)
+                {
+                    fprintf(out, "    ");
                     gerarCodigoC_rec(s, out);
+                    if (s->tipo == NO_DECL || s->tipo == NO_OP || s->tipo == NO_CONSOLE_LOG ||
+                        s->tipo == NO_BREAK || s->tipo == NO_CONTINUE)
+                    {
+                        fprintf(out, ";");
+                    }
+                    fprintf(out, "\n");
+                }
             }
         }
         fprintf(out, "}\n");
         break;
 
     case NO_CONSOLE_LOG:
-    fprintf(out, "    printf(");
-     if (raiz->esquerda) {
-        // Se for um identificador, consultar a tabela de símbolos
-        if (raiz->esquerda->tipo == NO_ID) {
-            TipoDado tipo_variavel = obterTipo(raiz->esquerda->nome);
-            switch (tipo_variavel) {
-                case TIPO_STRING:
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    break;
-                case TIPO_BOOLEAN:
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    fprintf(out, " ? \"true\" : \"false\"");
-                    break;
-                default: // TIPO_NUMBER
-                    fprintf(out, "\"%%d\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    break;
+        fprintf(out, "    printf(");
+        if (raiz->esquerda)
+        {
+            TipoDado tipo = obterTipoExpressao(raiz->esquerda);
+
+            if (tipo == TIPO_STRING)
+            {
+                fprintf(out, "\"%%s\\n\", ");
+                gerarCodigoC_rec(raiz->esquerda, out);
+            }
+            else if (tipo == TIPO_BOOLEAN)
+            {
+                fprintf(out, "\"%%s\\n\", ");
+                gerarCodigoC_rec(raiz->esquerda, out);
+                fprintf(out, " ? \"true\" : \"false\"");
+            }
+            else
+            {
+                fprintf(out, "\"%%d\\n\", ");
+                gerarCodigoC_rec(raiz->esquerda, out);
             }
         }
-        // Para outros tipos (literais) - ADICIONAR TRATAMENTO PARA COMPARAÇÕES
-        else if (raiz->esquerda->tipo == NO_OP && 
-                (raiz->esquerda->valor == OP_EQ || raiz->esquerda->valor == OP_NEQ ||
-                 raiz->esquerda->valor == OP_LT || raiz->esquerda->valor == OP_GT ||
-                 raiz->esquerda->valor == OP_LE || raiz->esquerda->valor == OP_GE)) {
-            // É uma operação de comparação - tratar como boolean
-            fprintf(out, "\"%%s\\n\", ");
-            gerarCodigoC_rec(raiz->esquerda, out);
-            fprintf(out, " ? \"true\" : \"false\"");
-        }
-        else {
-            switch (raiz->esquerda->tipo) {
-                case NO_STR:
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    break;
-                case NO_BOOL:
-                    fprintf(out, "\"%%s\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    fprintf(out, " ? \"true\" : \"false\"");
-                    break;
-                default: // NO_NUM, NO_OP, etc.
-                    fprintf(out, "\"%%d\\n\", ");
-                    gerarCodigoC_rec(raiz->esquerda, out);
-                    break;
-            }
-        }
-    }
-    fprintf(out, ");\n");
-    break;
+        fprintf(out, ")");
+        break;
 
     default:
         break;
     }
-}
 
+    // se abriu escopo neste nó, fecha agora.
+    if (escopo_criado)
+    {
+        popScope();
+    }
+}
 
 void gerarCodigoC(NoAST *ast_root, const char *nomeArquivo)
 {
@@ -263,20 +330,36 @@ void gerarCodigoC(NoAST *ast_root, const char *nomeArquivo)
         return;
     }
 
-    fprintf(out, "#include <stdio.h>\n\nint main() {\n");
+    // Limpa qualquer lixo anterior da tabela para garantir geração limpa
+    liberarTabelaSimbolos();
+    pushScope(); // Escopo Global para Codegen
+
+    fprintf(out, "#include <stdio.h>\n");
+    fprintf(out, "#include <stdlib.h>\n");
+    fprintf(out, "#include <string.h>\n\n");
+    fprintf(out, "char* concat_str(char* s1, char* s2) {\n");
+    fprintf(out, "    char* result = malloc(strlen(s1) + strlen(s2) + 1);\n");
+    fprintf(out, "    strcpy(result, s1);\n");
+    fprintf(out, "    strcat(result, s2);\n");
+    fprintf(out, "    return result;\n");
+    fprintf(out, "}\n\n");
+    fprintf(out, "int main() {\n");
 
     for (NoAST *n = ast_root; n != NULL; n = n->prox)
     {
-        fprintf(out, "    "); 
+        fprintf(out, "    ");
         gerarCodigoC_rec(n, out);
-
-     if (n->tipo == NO_OP || n->tipo == NO_CONSOLE_LOG) {
+        if (n->tipo == NO_DECL || n->tipo == NO_OP || n->tipo == NO_CONSOLE_LOG ||
+            n->tipo == NO_BREAK || n->tipo == NO_CONTINUE)
+        {
             fprintf(out, ";");
         }
-
-        fprintf(out, "\n"); 
+        fprintf(out, "\n");
     }
 
     fprintf(out, "    return 0;\n}\n");
+
+    // Limpeza final
+    popScope(); // Fecha escopo global
     fclose(out);
 }

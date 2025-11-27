@@ -22,7 +22,7 @@ BISON_H  := src/parser.tab.h
 FLEX_C   := src/lex.yy.c
 
 # fontes manuais
-PARSER_SRCS := parser/ast.c parser/codegen.c parser/tabela.c
+PARSER_SRCS := parser/ast.c parser/codegen.c parser/tabela.c parser/otimizador.c
 # fontes gerados pelo flex/bison
 SRC_SRCS := src/parser.tab.c src/lex.yy.c
 
