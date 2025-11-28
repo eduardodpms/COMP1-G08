@@ -34,12 +34,12 @@ theme:
     - navigation.top
   palette:
     - media: "(prefers-color-scheme: light)"
-      scheme: claro
+      scheme: default
       toggle:
         icon: material/weather-night
         name: Escuro
 
-    - media: "(prefers-color-scheme: light)"
+    - media: "(prefers-color-scheme: dark)"
       scheme: slate
       toggle:
         icon: material/weather-sunny
