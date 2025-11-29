@@ -566,18 +566,14 @@
       <div class="terminal-content">
         <div class="terminal-line">
           <span class="terminal-prompt">$</span>
-          <span class="terminal-command">./compilador exemplos/programa.ts</span>
+          <span class="terminal-command">./parser path/to/typescript.ts</span>
         </div>
         <div class="terminal-line">
-          <span class="terminal-output">Código C gerado: saida.c</span>
+          <span class="terminal-output">(Opcional) Código C gerado: saida.c</span>
         </div>
         <div class="terminal-line">
           <span class="terminal-prompt">$</span>
           <span class="terminal-command">gcc saida.c -o programa</span>
-        </div>
-        <div class="terminal-line">
-          <span class="terminal-prompt">$</span>
-          <span class="terminal-command">./programa</span>
         </div>
       </div>
     </div>
