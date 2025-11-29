@@ -1,0 +1,7 @@
+.md-sidebar {
+  visibility: hidden;
+}
+
+.md-sidebar__toggle {
+  display: none;
+}
