@@ -106,4 +106,10 @@ int avaliarExpr(NoAST *expr, int *ok);
 int obterValor(const char *nome, int *ok);
 TipoDado obterTipo(const char *nome);
 
+/* ast.h (adicionar perto das outras declarações/exports) */
+int astIsStringLiteral(NoAST *n);
+int astIsNumberLiteral(NoAST *n);
+int astIsBoolLiteral(NoAST *n);
+void liberarNoAST(NoAST *n); /* wrapper para ast_free, para semântica mais clara */
+
 #endif

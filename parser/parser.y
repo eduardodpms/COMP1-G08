@@ -76,45 +76,49 @@ program:
 variable_definition:
     var_kind IDENT COLON TYPE_NUMBER ASSIGN expr {
         char *ident_name = $2;
-        $$ = criarNoDecl($1, TIPO_NUMBER, ident_name, $6);
-        inserirSimbolo(ident_name, TIPO_NUMBER);
-        int ok; int valor = avaliarExpr($6, &ok);
-        if(ok) atualizarValorConstante(ident_name, valor);
-        free(ident_name);
+        /* Se $6 for um literal string, reporta erro. 
+           Adapte astIsStringLiteral() conforme sua implementação de AST. */
+        if (astIsStringLiteral($6)) {
+            report_error(yylineno, "Tentativa de atribuir string a variavel numerica '%s'.", ident_name);
+            liberarNoAST($6); /* ou free do nó, conforme seu código */
+            free(ident_name);
+            $$ = NULL;
+        } else {
+            $$ = criarNoDecl($1, TIPO_NUMBER, ident_name, $6);
+            inserirSimbolo(ident_name, TIPO_NUMBER);
+            int ok; int valor = avaliarExpr($6, &ok);
+            if (ok) atualizarValorConstante(ident_name, valor);
+            free(ident_name);
+        }
     }
-    | var_kind IDENT COLON TYPE_STRING ASSIGN expr {
+  | var_kind IDENT COLON TYPE_STRING ASSIGN expr {
         char *ident_name = $2;
-        $$ = criarNoDecl($1, TIPO_STRING, ident_name, $6);
-        inserirSimbolo(ident_name, TIPO_STRING);
-        free(ident_name);
+        if (astIsNumberLiteral($6)) {
+            report_error(yylineno, "Tentativa de atribuir numero a variavel string '%s'.", ident_name);
+            liberarNoAST($6);
+            free(ident_name);
+            $$ = NULL;
+        } else {
+            $$ = criarNoDecl($1, TIPO_STRING, ident_name, $6);
+            inserirSimbolo(ident_name, TIPO_STRING);
+            free(ident_name);
+        }
     }
-    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN expr {
+  | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN expr {
         char *ident_name = $2;
-        $$ = criarNoDecl($1, TIPO_BOOLEAN, ident_name, $6);
-        inserirSimbolo(ident_name, TIPO_BOOLEAN);
-        free(ident_name);
-    }
-    | var_kind IDENT COLON TYPE_NUMBER ASSIGN STRING_LITERAL {
-        char *ident_name = $2; char *str_lit = $6;
-        report_error(yylineno, "Tentativa de atribuir string a variavel numerica '%s'.", ident_name);
-        free(ident_name); free(str_lit); $$ = NULL; 
-    }
-    | var_kind IDENT COLON TYPE_STRING ASSIGN NUMBER_LITERAL {
-        char *ident_name = $2;
-        report_error(yylineno, "Tentativa de atribuir numero a variavel string '%s'.", ident_name);
-        free(ident_name); $$ = NULL;
-    }
-    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN STRING_LITERAL {
-        char *ident_name = $2; char *str_lit = $6;
-        report_error(yylineno, "Tentativa de atribuir string a variavel boolean '%s'.", ident_name);
-        free(ident_name); free(str_lit); $$ = NULL;
-    }
-    | var_kind IDENT COLON TYPE_BOOLEAN ASSIGN NUMBER_LITERAL {
-        char *ident_name = $2;
-        report_error(yylineno, "Tentativa de atribuir numero a variavel boolean '%s'.", ident_name);
-        free(ident_name); $$ = NULL;
+        if (astIsStringLiteral($6) || astIsNumberLiteral($6)) {
+            report_error(yylineno, "Tentativa de atribuir valor invalido a variavel boolean '%s'.", ident_name);
+            liberarNoAST($6);
+            free(ident_name);
+            $$ = NULL;
+        } else {
+            $$ = criarNoDecl($1, TIPO_BOOLEAN, ident_name, $6);
+            inserirSimbolo(ident_name, TIPO_BOOLEAN);
+            free(ident_name);
+        }
     }
 ;
+
 
 declaration:
     variable_definition SEMICOLON { $$ = $1; }
@@ -188,7 +192,7 @@ statement:
 ;
 
 if_stmt:
-    IF LPAREN expr RPAREN statement { $$ = criarNoIf($3, $5, NULL); }
+    IF LPAREN expr RPAREN statement %prec LOWER_THAN_ELSE { $$ = criarNoIf($3, $5, NULL); }
     | IF LPAREN expr RPAREN statement ELSE statement { $$ = criarNoIf($3, $5, $7); }
 ;
 
