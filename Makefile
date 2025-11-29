@@ -2,7 +2,7 @@ UNAME_S := $(shell uname -s)
 
 CC       := gcc
 INCDIRS  := -I./parser -I./src
-CFLAGS   := -g -Wall -Wextra $(INCDIRS) -fno-common
+CFLAGS   := -g -Wall -Wextra $(INCDIRS) -fno-common -Wno-unused-function
 
 FLEX_LIBDIR ?=
 

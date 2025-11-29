@@ -653,4 +653,26 @@ void ast_free(NoAST *node)
     free(node);
 }
 
-const char *tipoNoToString(NoTipo tipo) { return ""; } // Stub para linkagem se necessário
+/* ast.c (adicionar depois de ast_free) */
+
+int astIsStringLiteral(NoAST *n)
+{
+    return n != NULL && n->tipo == NO_STR;
+}
+
+int astIsNumberLiteral(NoAST *n)
+{
+    return n != NULL && n->tipo == NO_NUM;
+}
+
+int astIsBoolLiteral(NoAST *n)
+{
+    return n != NULL && n->tipo == NO_BOOL;
+}
+
+/* Wrapper semântico para liberar um nó AST (chama ast_free já existente) */
+void liberarNoAST(NoAST *n)
+{
+    ast_free(n);
+}
+
