@@ -1,66 +1,88 @@
-# Projeto de Compiladores - G08
 
-## Introdução
+<div align="center">
 
-Projeto do grupo 8 na disciplina de Compiladores 1 do professor Sérgio, na Universidade de Brasília (FCTE).
+# ⚡ COMPILADOR TS → C
 
-<br>
+![Status](https://img.shields.io/badge/status-concluído-brightgreen.svg)
 
-## Requisitos
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![C](https://img.shields.io/badge/C-A8B9CC?logo=c&logoColor=black)](https://en.cppreference.com/w/c)
+[![Flex](https://img.shields.io/badge/Flex-2C2255?logo=gnu&logoColor=white)](https://github.com/westes/flex)
+[![Bison](https://img.shields.io/badge/Bison-2C2255?logo=gnu&logoColor=white)](https://www.gnu.org/software/bison/)
 
-- *Unix* environment (*Linux*, *WSL*, *macOS*, etc)
-- *flex* `2.6.4`
-- *bison* `3.8.2`
-- *GCC* `13.3.0`
+**Projeto da disciplina de Compiladores 1 - Universidade de Brasília**
 
-<br>
+</div>
 
-## Como executar
+-----
+## 📋 Sobre o Projeto
 
-### > Gerando o binário
-
-1. Clone o repositório e execute o seguinte comando:
-```bash
-make # Processa os arquivos e gera o binário bin/parser
-```
-
-Esse comando irá, automaticamente, executar os seguintes comandos e gerar um binário em `bin/parser`:
-
-```bash
-rm -f bin/parser output.c src/parser.tab.c src/parser.tab.h src/lex.yy.c # Apaga os arquivos, caso já existam
-mkdir -p src bin # Cria as pasta src/ e bin/
-bison -d -o src/parser.tab.c    parser/parser.y # Gera os arquivos do parser
-flex -o src/lex.yy.c    lexer/lexer.l # Gera o arquivo do lexer
-gcc -o bin/parser    src/parser.tab.c src/lex.yy.c # Compila em um binário em bin/parser
-```
-
-2. Depois, execute o binário com o *path* do arquivo *TypeScript* que se deseja compilar:
-
-```bash
-./bin/parser  tests/file.ts # Executa o arquivo binário gerado
-```
-
-O código em *C* produzido será salvo em `output.c`, na raiz do repositório.
+Compilador desenvolvido pelo Grupo 08 na disciplina de Compiladores 1 do professor Sérgio. O projeto traduz código TypeScript para linguagem C, implementando todas as fases de um compilador tradicional.
 
 ---
 
-### > Apagando os arquivos
+## 🎯 Status do Projeto
 
-1. Para simplesmente apagar os arquivos gerados, execute o seguinte comando:
+✅ **PROJETO CONCLUÍDO** - Todas as fases implementadas com sucesso
+
+| Componente | Status |
+|------------|--------|
+| 🔤 Análise Léxica | ✅ Concluída |
+| 📐 Análise Sintática | ✅ Concluída |
+| 🎯 Análise Semântica | ✅ Concluída |
+| 💻 Geração de Código | ✅ Concluída |
+
+-----
+
+## 📋 Requisitos
+
+- **Sistema**: Ambiente Unix (Linux, WSL, macOS, etc)
+- **Flex**: Versão `2.6.4` ou superior
+- **Bison**: Versão `3.8.2` ou superior  
+- **GCC**: Versão `13.3.0` ou superior
+-----
+
+## 💻 Como Executar
 
 ```bash
-make clean # Apaga os arquivos gerados
+# Compilar o compilador
+make
+
+# Executar com arquivo TypeScript
+./parser path/to/typescript.ts
+
+# Compilar o código C gerado
+gcc saida.c -o programa
+
+# Executa o arquivo binário gerado
+./bin/parser  tests/file.ts
+
+#Limpar arquivos gerados
+make clean
+
 ```
+----
+## 🧪 Testes
 
-Essa entrada irá executar o seguinte comando:
-
+### Executar Todos os Testes
 ```bash
-rm -f bin/parser output.c src/parser.tab.c src/parser.tab.h src/lex.yy.c # Apaga os arquivos gerados
+# Executar suite completa de testes
+./run_tests.sh
+
+# Executar Testes Específicos
+./bin/parser tests/valid/nome_do_teste.ts
+./bin/parser tests/invalid/nome_do_teste.ts
+
 ```
+----
+## 🔗 Mais Informações
 
-<br>
+Para documentação completa, exemplos detalhados, estrutura do projeto e informações técnicas:
 
-## Membros da Equipe
+### [Acesse nossa documentação completa aqui](https://eduardodpms.github.io/COMP1-G08/)
+
+----
+## 👥 Membros da Equipe
 
 <div align="center"><table>
   <tr>
@@ -71,3 +93,4 @@ rm -f bin/parser output.c src/parser.tab.c src/parser.tab.h src/lex.yy.c # Apaga
     <td align="center"><a href="https://github.com/luisa12ll"><img src="https://avatars.githubusercontent.com/luisa12ll" width="100px" style="border-radius: 50%;"><br/>Luísa de Souza<br/></a></td>
   </tr>
 </table></div>
+
