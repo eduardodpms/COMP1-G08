@@ -51,17 +51,17 @@ make
 # Executar com arquivo TypeScript
 ./parser path/to/typescript.ts
 
-# Compilar o código C gerado
-gcc saida.c -o programa
-
-# Executa o arquivo binário gerado
-./bin/parser  tests/file.ts
-
-#Limpar arquivos gerados
-make clean
-
+# (OPCIONAL) Compilar o código C gerado
+gcc output.c -o programa
 ```
-----
+
+## 🧹 Limpando os arquivos gerados
+
+```bash
+# Limpa todos os arquivos gerados
+make clean
+```
+
 ## 🧪 Testes
 
 ### Executar Todos os Testes
